@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -13,6 +14,7 @@ import {z} from 'genkit';
 
 const CompileCodeInputSchema = z.object({
   code: z.string().describe('The Java code to compile and run.'),
+  userInput: z.string().optional().describe('Optional standard input for the Java code. Each line is typically treated as a separate input by Scanner.'),
 });
 export type CompileCodeInput = z.infer<typeof CompileCodeInputSchema>;
 
@@ -28,18 +30,26 @@ export async function compileCode(input: CompileCodeInput): Promise<CompileCodeO
 const executeJavaCode = ai.defineTool(
   {
     name: 'executeJavaCode',
-    description: 'Executes Java code and returns the output as a string.',
+    description: 'Executes Java code and returns the output as a string. If userInput is provided, it simulates passing that input to the standard input of the Java program.',
     inputSchema: z.object({
       code: z.string().describe('The Java code to execute.'),
+      userInput: z.string().optional().describe('Optional standard input for the Java code.'),
     }),
     outputSchema: z.string(),
   },
-  async input => {
+  async (input) => {
     // This is a placeholder implementation.  In a real application, this would call
     // a secure code execution service like JDoodle or a sandboxed Docker container.
     // For now, it just returns a canned response.
     console.log(`Executing Java code: ${input.code}`);
-    return `Code execution is simulated. Real output would appear here.\nYour code was:\n${input.code}`;
+    if (input.userInput) {
+      console.log(`With user input: ${input.userInput}`);
+    }
+    let simulatedOutput = `Code execution is simulated. Real output would appear here.\nYour code was:\n${input.code}`;
+    if (input.userInput) {
+      simulatedOutput += `\n\nSimulated input received by program:\n${input.userInput}`;
+    }
+    return simulatedOutput;
   }
 );
 
@@ -47,10 +57,11 @@ const compileCodePrompt = ai.definePrompt({
   name: 'compileCodePrompt',
   tools: [executeJavaCode],
   input: { schema: CompileCodeInputSchema },
-  output: { schema: CompileCodeOutputSchema }, // Ensure the LLM structures its output
+  output: { schema: CompileCodeOutputSchema }, 
   prompt: `You are a Java code execution service.
 The user provides Java code in the 'code' field.
-You MUST use the 'executeJavaCode' tool to execute this Java code.
+Optionally, the user may provide standard input for the program in the 'userInput' field.
+You MUST use the 'executeJavaCode' tool to execute this Java code, passing along the 'code' and any 'userInput'.
 After the tool executes, take the string output from the tool and place it directly into the 'output' field of your JSON response.
 Your entire response must be a JSON object matching the defined output schema, containing only the 'output' field with the tool's result.
 
@@ -58,6 +69,12 @@ Input Java Code:
 \`\`\`java
 {{{code}}}
 \`\`\`
+{{#if userInput}}
+User Standard Input:
+\`\`\`
+{{{userInput}}}
+\`\`\`
+{{/if}}
 `,
 });
 
@@ -70,18 +87,15 @@ const compileCodeFlow = ai.defineFlow(
   async (input: CompileCodeInput): Promise<CompileCodeOutput> => {
     const response = await compileCodePrompt(input);
 
-    // response.output should be populated if the LLM successfully follows the output schema
     if (response.output && typeof response.output.output === 'string') {
-      return response.output; // Expected: { output: "some string from LLM/tool" }
+      return response.output; 
     }
 
-    // Fallback / Error handling
     console.error(
       "CompileCodeFlow: LLM did not produce the expected structured output. Full response:",
       JSON.stringify(response, null, 2)
     );
 
-    // Attempt to find tool output directly if structured output failed
     if (response.toolRequests && response.toolRequests.length > 0) {
         for (const req of response.toolRequests) {
             const toolResponseData = response.toolResponses[req.toolRequestId];
@@ -92,7 +106,6 @@ const compileCodeFlow = ai.defineFlow(
         }
     }
     
-    // If there's any text output from the LLM, use it as a last resort
     if (response.text) {
         console.warn("CompileCodeFlow: LLM did not produce structured output. Using raw text output as fallback.");
         return { output: response.text };
