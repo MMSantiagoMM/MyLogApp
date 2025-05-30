@@ -1,3 +1,90 @@
-export default function Home() {
-  return <></>;
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileCode, Archive, ListChecks, Lightbulb, BookOpen, Users } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+
+export default function HomePage() {
+  return (
+    <div className="container mx-auto py-8">
+      <section className="text-center mb-12">
+        <h1 className="text-5xl font-bold mb-4 font-headline">Welcome to DevSpace</h1>
+        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          Your personal platform for learning, coding, and collaboration. Upload files, tackle exercises, and compile Java code, all in one place.
+        </p>
+      </section>
+
+      <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+        <FeatureCard
+          icon={<FileCode className="w-10 h-10 text-primary" />}
+          title="Online Java Editor"
+          description="Write, compile, and run Java code directly in your browser. Get instant feedback and debug effectively."
+          link="/editor"
+          linkText="Try the Editor"
+        />
+        <FeatureCard
+          icon={<Archive className="w-10 h-10 text-primary" />}
+          title="File Repository"
+          description="Upload, organize, and share your documents, notes, and project files securely."
+          link="/files"
+          linkText="Manage Files"
+        />
+        <FeatureCard
+          icon={<ListChecks className="w-10 h-10 text-primary" />}
+          title="Practice Exercises"
+          description="Access a curated list of coding exercises to sharpen your Java skills and track your progress."
+          link="/exercises"
+          linkText="View Exercises"
+        />
+      </section>
+      
+      <section className="bg-card p-8 rounded-lg shadow-lg flex flex-col md:flex-row items-center gap-8">
+        <div className="flex-1">
+          <h2 className="text-3xl font-bold mb-4 font-headline">Ready to Elevate Your Coding Journey?</h2>
+          <p className="text-muted-foreground mb-6">
+            DevSpace is designed to provide a seamless and productive environment for students and developers. 
+            Start exploring the features and make the most of your learning experience.
+          </p>
+          <Link href="/editor">
+            <Button size="lg">Get Started</Button>
+          </Link>
+        </div>
+        <div className="flex-shrink-0">
+          <Image 
+            src="https://placehold.co/400x300.png" 
+            alt="Coding illustration" 
+            width={400} 
+            height={300} 
+            className="rounded-lg"
+            data-ai-hint="coding computer" 
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+interface FeatureCardProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  link: string;
+  linkText: string;
+}
+
+function FeatureCard({ icon, title, description, link, linkText }: FeatureCardProps) {
+  return (
+    <Card className="hover:shadow-xl transition-shadow duration-300">
+      <CardHeader className="items-center">
+        {icon}
+        <CardTitle className="mt-4 font-headline">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="text-center">
+        <p className="text-muted-foreground mb-4">{description}</p>
+        <Link href={link}>
+          <Button variant="outline">{linkText}</Button>
+        </Link>
+      </CardContent>
+    </Card>
+  );
 }
