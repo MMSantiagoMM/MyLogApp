@@ -127,8 +127,8 @@ export default function JavaEditor({ initialCode, initialUserInput, localStorage
                 Code Editor
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 flex-grow flex flex-col">
-              <div className="rounded-md border overflow-hidden flex-grow">
+            <CardContent className="flex-grow flex flex-col p-1"> {/* MODIFIED: Reduced padding, removed space-y-4 */}
+              <div className="rounded-md border overflow-hidden flex-grow h-full"> {/* MODIFIED: Added h-full */}
                 <Editor
                   height="100%" // Make editor take full height of its container
                   language="java"
