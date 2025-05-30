@@ -215,7 +215,7 @@ export default function ExercisesPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-8 md:grid-cols-1"> {/* Changed to 1 column for wider cards */}
+          <div className="grid gap-8 md:grid-cols-1"> 
             {exercises.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(exercise => (
               <Card key={exercise.id} className="flex flex-col">
                 <CardHeader>
@@ -225,7 +225,7 @@ export default function ExercisesPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow pt-2">
-                  <div className="w-full h-64 sm:h-80 md:h-96 border rounded-md overflow-hidden bg-white relative shadow-inner"> {/* Adaptive height */}
+                  <div className="w-full h-64 sm:h-80 md:h-96 border rounded-md overflow-hidden bg-white relative shadow-inner">
                     {exercise.htmlContent ? (
                       <iframe
                         srcDoc={exercise.htmlContent}
@@ -294,8 +294,8 @@ export default function ExercisesPage() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Exercises
             </Button>
         </div>
-        <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 h-[calc(100vh-15rem)] md:h-[calc(100vh-12rem)]">
-            <Card className="flex flex-col h-full overflow-hidden">
+        <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-15rem)] md:h-[calc(100vh-12rem)]">
+            <Card className="flex flex-col h-full overflow-hidden md:col-span-1">
                 <CardHeader>
                     <CardTitle className="font-headline flex items-center gap-2 text-xl">
                         <MonitorPlay className="w-6 h-6" /> Exercise Instructions
@@ -310,7 +310,7 @@ export default function ExercisesPage() {
                     />
                 </CardContent>
             </Card>
-            <div className="h-full overflow-y-auto">
+            <div className="h-full overflow-y-auto md:col-span-2">
                  <JavaEditor localStorageSuffix={`_exercise_${currentAttemptingExercise.id}`} />
             </div>
         </div>
