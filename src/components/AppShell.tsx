@@ -129,7 +129,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </SidebarFooter>
         </Sidebar>
         <SidebarInset className="flex-1">
-          <main className="h-full overflow-y-auto p-4 md:p-6 lg:p-8">
+          <main className="h-full overflow-y-auto p-2 md:p-4 lg:p-6">
             {children}
           </main>
         </SidebarInset>
