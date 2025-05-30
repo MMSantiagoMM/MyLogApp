@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Editor from "@monaco-editor/react";
 import { 
-  BookMarked, CodeXml, MonitorPlay, Loader2, PlusCircle, Edit3, Trash2, Save, XCircle, FileText
+  BookMarked, CodeXml, MonitorPlay, Loader2, PlusCircle, Edit3, Trash2, Save, XCircle, FileText, Expand
 } from "lucide-react";
 import {
   AlertDialog,
@@ -157,6 +157,17 @@ export default function ExercisesPage() {
     setEditingHtmlContent(defaultExerciseHtmlContent);
   };
 
+  const handleExpandExercise = (htmlContent: string) => {
+    const newWindow = window.open();
+    if (newWindow) {
+      newWindow.document.open();
+      newWindow.document.write(htmlContent);
+      newWindow.document.close();
+    } else {
+      alert("Failed to open new tab. Please check your pop-up blocker settings.");
+    }
+  };
+
   if (!isMounted) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -193,7 +204,7 @@ export default function ExercisesPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2"> {/* Adjusted grid for better exercise display */}
+          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
             {exercises.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(exercise => (
               <Card key={exercise.id} className="flex flex-col">
                 <CardHeader>
@@ -203,13 +214,13 @@ export default function ExercisesPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow pt-2">
-                  <div className="w-full h-64 border rounded-md overflow-hidden bg-white relative shadow-inner"> {/* Increased height for exercise content */}
+                  <div className="w-full h-64 border rounded-md overflow-hidden bg-white relative shadow-inner">
                     {exercise.htmlContent ? (
                       <iframe
                         srcDoc={exercise.htmlContent}
                         title={`${exercise.title} - Preview`}
                         className="w-full h-full border-0"
-                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups" // Added more sandbox permissions if exercises need them
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                         scrolling="auto" 
                       />
                     ) : (
@@ -220,6 +231,9 @@ export default function ExercisesPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-end gap-2 pt-4">
+                  <Button variant="outline" size="sm" onClick={() => handleExpandExercise(exercise.htmlContent)}>
+                    <Expand className="mr-1 h-4 w-4" /> Expand
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => handleEditClick(exercise)}>
                     <Edit3 className="mr-1 h-4 w-4" /> Edit
                   </Button>
@@ -281,7 +295,7 @@ export default function ExercisesPage() {
         className="text-lg font-semibold mb-4"
       />
 
-      <div className="grid md:grid-cols-2 gap-8 h-[calc(100vh-18rem)] md:h-[calc(100vh-16rem)]"> {/* Adjusted height */}
+      <div className="grid md:grid-cols-2 gap-8 h-[calc(100vh-18rem)] md:h-[calc(100vh-16rem)]">
         <Card className="flex flex-col h-full">
           <CardHeader>
             <CardTitle className="font-headline flex items-center gap-2">
@@ -323,7 +337,7 @@ export default function ExercisesPage() {
               srcDoc={editingHtmlContent}
               title="Exercise HTML Preview"
               className="w-full h-full border rounded-md bg-white"
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms" // Permissions for exercises
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms" 
             />
           </CardContent>
         </Card>
@@ -331,3 +345,4 @@ export default function ExercisesPage() {
     </div>
   );
 }
+
