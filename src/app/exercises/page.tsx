@@ -225,7 +225,7 @@ export default function ExercisesPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow pt-2">
-                  <div className="w-full h-96 border rounded-md overflow-hidden bg-white relative shadow-inner"> {/* Increased height */}
+                  <div className="w-full h-64 sm:h-80 md:h-96 border rounded-md overflow-hidden bg-white relative shadow-inner"> {/* Adaptive height */}
                     {exercise.htmlContent ? (
                       <iframe
                         srcDoc={exercise.htmlContent}
@@ -286,7 +286,7 @@ export default function ExercisesPage() {
   if (view === 'attempt' && currentAttemptingExercise) {
     return (
       <div className="space-y-4 h-full flex flex-col">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center flex-wrap gap-y-2">
             <h1 className="text-2xl font-bold font-headline flex items-center gap-2">
                 Attempting: {currentAttemptingExercise.title}
             </h1>
@@ -294,7 +294,7 @@ export default function ExercisesPage() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Exercises
             </Button>
         </div>
-        <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 h-[calc(100vh-12rem)] md:h-[calc(100vh-10rem)]">
+        <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 h-[calc(100vh-15rem)] md:h-[calc(100vh-12rem)]">
             <Card className="flex flex-col h-full overflow-hidden">
                 <CardHeader>
                     <CardTitle className="font-headline flex items-center gap-2 text-xl">
@@ -321,12 +321,12 @@ export default function ExercisesPage() {
   // 'edit' or 'create' view for exercises
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-y-2">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
           <BookMarked className="w-8 h-8" />
           {view === 'create' ? 'Create New Exercise' : `Edit Exercise: ${currentEditingExercise?.title || ''}`}
         </h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
            <Button onClick={handleSaveExercise}>
             <Save className="mr-2 h-4 w-4" /> Save Exercise
           </Button>
@@ -341,10 +341,10 @@ export default function ExercisesPage() {
         placeholder="Exercise Title"
         value={editingTitle}
         onChange={(e) => setEditingTitle(e.target.value)}
-        className="text-lg font-semibold mb-4"
+        className="text-lg font-semibold" 
       />
 
-      <div className="grid md:grid-cols-2 gap-8 h-[calc(100vh-18rem)] md:h-[calc(100vh-16rem)]">
+      <div className="grid md:grid-cols-2 gap-8 h-[calc(100vh-20rem)] md:h-[calc(100vh-18rem)]">
         <Card className="flex flex-col h-full">
           <CardHeader>
             <CardTitle className="font-headline flex items-center gap-2">
@@ -394,3 +394,4 @@ export default function ExercisesPage() {
     </div>
   );
 }
+
