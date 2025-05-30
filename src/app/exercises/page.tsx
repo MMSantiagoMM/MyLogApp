@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import Editor from "@monaco-editor/react";
 import { 
   BookMarked, CodeXml, MonitorPlay, Loader2, PlusCircle, Edit3, Trash2, Save, XCircle, FileText, Expand, PlayCircle, ArrowLeft,
-  PanelLeftClose, PanelLeftOpen, ArrowRightLeft // Added ArrowRightLeft
+  PanelLeftClose, PanelLeftOpen, ArrowRightLeft
 } from "lucide-react";
 import {
   AlertDialog,
@@ -242,7 +242,7 @@ export default function ExercisesPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-8 md:grid-cols-1"> 
+          <div className="grid gap-8 md:grid-cols-2"> 
             {exercises.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(exercise => (
               <Card key={exercise.id} className="flex flex-col">
                 <CardHeader>
@@ -329,7 +329,7 @@ export default function ExercisesPage() {
             </div>
         </div>
         <div className={cn(
-            "flex-grow grid grid-cols-1 md:grid-cols-4 gap-4 h-[calc(100vh-15rem)] md:h-[calc(100vh-12rem)]" // Base grid is 4 cols for md+
+            "flex-grow grid grid-cols-1 md:grid-cols-4 gap-4 h-[calc(100vh-15rem)] md:h-[calc(100vh-12rem)]" 
           )}
         >
             {instructionPanelState !== 'hidden' && (
@@ -444,3 +444,5 @@ export default function ExercisesPage() {
     </div>
   );
 }
+
+    
