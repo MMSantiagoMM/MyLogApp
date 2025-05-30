@@ -27,6 +27,7 @@ import {
   Presentation,
   Moon,
   Sun,
+  Coffee, // Added Coffee icon
 } from "lucide-react";
 
 // Simple theme toggle (conceptual, full implementation requires theme context)
@@ -95,11 +96,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar collapsible="icon" variant="sidebar" className="border-r">
           <SidebarHeader className="flex items-center justify-between p-3">
             <Link href="/" className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-primary">
-                <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.086A.75.75 0 003 6.723V21.75a.75.75 0 00.75.75h16.5a.75.75 0 00.75-.75V6.723a.75.75 0 00-.366-.637L12.378 1.602zM12 7.5a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V8.25A.75.75 0 0112 7.5zM11.25 15a.75.75 0 000 1.5h1.5a.75.75 0 000-1.5h-1.5z" />
-              </svg>
+              <Coffee className="w-7 h-7 text-primary" />
               <span className="font-headline text-base font-semibold text-foreground group-data-[collapsible=icon]:hidden">
-                Mi Cesde Java Compiler
+                My Logic App
               </span>
             </Link>
             <SidebarTrigger />
