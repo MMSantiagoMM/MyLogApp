@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Editor from "@monaco-editor/react";
 import { 
-  BookMarked, CodeXml, MonitorPlay, Loader2, PlusCircle, Edit3, Trash2, Save, XCircle, FileText, Expand
+  BookMarked, CodeXml, MonitorPlay, Loader2, PlusCircle, Edit3, Trash2, Save, XCircle, FileText, Expand, PlayCircle, ArrowLeft
 } from "lucide-react";
 import {
   AlertDialog,
@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import JavaEditor from '@/components/JavaEditor'; // Import the reusable JavaEditor
 
 const defaultExerciseHtmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -55,8 +56,9 @@ const LOCAL_STORAGE_KEY = "htmlExercisesList_v1";
 
 export default function ExercisesPage() {
   const [exercises, setExercises] = useState<ExerciseItem[]>([]);
-  const [view, setView] = useState<'list' | 'edit' | 'create'>('list');
+  const [view, setView] = useState<'list' | 'edit' | 'create' | 'attempt'>('list');
   const [currentEditingExercise, setCurrentEditingExercise] = useState<ExerciseItem | null>(null);
+  const [currentAttemptingExercise, setCurrentAttemptingExercise] = useState<ExerciseItem | null>(null);
   
   const [editingTitle, setEditingTitle] = useState<string>("");
   const [editingHtmlContent, setEditingHtmlContent] = useState<string>(defaultExerciseHtmlContent);
@@ -106,6 +108,7 @@ export default function ExercisesPage() {
 
   const handleCreateNewClick = () => {
     setCurrentEditingExercise(null);
+    setCurrentAttemptingExercise(null);
     setEditingTitle("New Exercise");
     setEditingHtmlContent(defaultExerciseHtmlContent);
     setView('create');
@@ -113,9 +116,16 @@ export default function ExercisesPage() {
 
   const handleEditClick = (exercise: ExerciseItem) => {
     setCurrentEditingExercise(exercise);
+    setCurrentAttemptingExercise(null);
     setEditingTitle(exercise.title);
     setEditingHtmlContent(exercise.htmlContent);
     setView('edit');
+  };
+
+  const handleAttemptClick = (exercise: ExerciseItem) => {
+    setCurrentAttemptingExercise(exercise);
+    setCurrentEditingExercise(null);
+    setView('attempt');
   };
 
   const handleSaveExercise = () => {
@@ -150,9 +160,10 @@ export default function ExercisesPage() {
     setExerciseToDelete(null);
   };
 
-  const handleCancelEditCreate = () => {
+  const handleCancelEditCreateAttempt = () => {
     setView('list');
     setCurrentEditingExercise(null);
+    setCurrentAttemptingExercise(null);
     setEditingTitle("");
     setEditingHtmlContent(defaultExerciseHtmlContent);
   };
@@ -204,7 +215,7 @@ export default function ExercisesPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+          <div className="grid gap-8 md:grid-cols-1"> {/* Changed to 1 column for wider cards */}
             {exercises.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(exercise => (
               <Card key={exercise.id} className="flex flex-col">
                 <CardHeader>
@@ -214,7 +225,7 @@ export default function ExercisesPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow pt-2">
-                  <div className="w-full h-64 border rounded-md overflow-hidden bg-white relative shadow-inner">
+                  <div className="w-full h-96 border rounded-md overflow-hidden bg-white relative shadow-inner"> {/* Increased height */}
                     {exercise.htmlContent ? (
                       <iframe
                         srcDoc={exercise.htmlContent}
@@ -231,6 +242,9 @@ export default function ExercisesPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-end gap-2 pt-4">
+                  <Button variant="default" size="sm" onClick={() => handleAttemptClick(exercise)}>
+                    <PlayCircle className="mr-1 h-4 w-4" /> Attempt
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => handleExpandExercise(exercise.htmlContent)}>
                     <Expand className="mr-1 h-4 w-4" /> Expand
                   </Button>
@@ -269,7 +283,42 @@ export default function ExercisesPage() {
     );
   }
 
-  // 'edit' or 'create' view
+  if (view === 'attempt' && currentAttemptingExercise) {
+    return (
+      <div className="space-y-4 h-full flex flex-col">
+        <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold font-headline flex items-center gap-2">
+                Attempting: {currentAttemptingExercise.title}
+            </h1>
+            <Button variant="outline" onClick={handleCancelEditCreateAttempt}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Exercises
+            </Button>
+        </div>
+        <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 h-[calc(100vh-12rem)] md:h-[calc(100vh-10rem)]">
+            <Card className="flex flex-col h-full overflow-hidden">
+                <CardHeader>
+                    <CardTitle className="font-headline flex items-center gap-2 text-xl">
+                        <MonitorPlay className="w-6 h-6" /> Exercise Instructions
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="flex-grow p-0 md:p-1">
+                    <iframe
+                        srcDoc={currentAttemptingExercise.htmlContent}
+                        title={`${currentAttemptingExercise.title} - Instructions`}
+                        className="w-full h-full border rounded-md bg-white"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    />
+                </CardContent>
+            </Card>
+            <div className="h-full overflow-y-auto">
+                 <JavaEditor localStorageSuffix={`_exercise_${currentAttemptingExercise.id}`} />
+            </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 'edit' or 'create' view for exercises
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
@@ -281,7 +330,7 @@ export default function ExercisesPage() {
            <Button onClick={handleSaveExercise}>
             <Save className="mr-2 h-4 w-4" /> Save Exercise
           </Button>
-          <Button variant="outline" onClick={handleCancelEditCreate}>
+          <Button variant="outline" onClick={handleCancelEditCreateAttempt}>
             <XCircle className="mr-2 h-4 w-4" /> Cancel
           </Button>
         </div>
@@ -345,4 +394,3 @@ export default function ExercisesPage() {
     </div>
   );
 }
-
