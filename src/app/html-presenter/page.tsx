@@ -270,7 +270,7 @@ export default function HtmlPresenterPage() {
         className="text-lg font-semibold mb-4"
       />
 
-      <div className="grid md:grid-cols-2 gap-8 h-[calc(100vh-18rem)] md:h-[calc(100vh-16rem)]"> {/* Adjusted height */}
+      <div className="grid md:grid-cols-2 gap-8 h-[calc(100vh-14rem)] md:h-[calc(100vh-12rem)]"> {/* Increased height */}
         <Card className="flex flex-col h-full">
           <CardHeader>
             <CardTitle className="font-headline flex items-center gap-2">
