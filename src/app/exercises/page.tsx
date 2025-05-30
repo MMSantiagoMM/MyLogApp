@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Editor from "@monaco-editor/react";
 import { 
-  BookMarked, CodeXml, MonitorPlay, Loader2, PlusCircle, Edit3, Trash2, Save, XCircle, FileText, Expand, PlayCircle, ArrowLeft
+  BookMarked, CodeXml, MonitorPlay, Loader2, PlusCircle, Edit3, Trash2, Save, XCircle, FileText, Expand, PlayCircle, ArrowLeft,
+  PanelLeftClose, PanelLeftOpen // Added Panel icons
 } from "lucide-react";
 import {
   AlertDialog,
@@ -20,7 +21,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import JavaEditor from '@/components/JavaEditor'; // Import the reusable JavaEditor
+import JavaEditor from '@/components/JavaEditor'; 
+import { cn } from "@/lib/utils";
 
 const defaultExerciseHtmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -66,6 +68,8 @@ export default function ExercisesPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [editorTheme, setEditorTheme] = useState('vs-light');
   const [exerciseToDelete, setExerciseToDelete] = useState<string | null>(null);
+  const [instructionsVisible, setInstructionsVisible] = useState(true);
+
 
   useEffect(() => {
     setIsMounted(true);
@@ -125,6 +129,7 @@ export default function ExercisesPage() {
   const handleAttemptClick = (exercise: ExerciseItem) => {
     setCurrentAttemptingExercise(exercise);
     setCurrentEditingExercise(null);
+    setInstructionsVisible(true); // Reset to show instructions when starting a new attempt
     setView('attempt');
   };
 
@@ -290,27 +295,42 @@ export default function ExercisesPage() {
             <h1 className="text-2xl font-bold font-headline flex items-center gap-2">
                 Attempting: {currentAttemptingExercise.title}
             </h1>
-            <Button variant="outline" onClick={handleCancelEditCreateAttempt}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Exercises
-            </Button>
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" onClick={() => setInstructionsVisible(!instructionsVisible)}>
+                {instructionsVisible ? <PanelLeftClose className="mr-2 h-4 w-4" /> : <PanelLeftOpen className="mr-2 h-4 w-4" />}
+                {instructionsVisible ? 'Hide Instructions' : 'Show Instructions'}
+              </Button>
+              <Button variant="outline" onClick={handleCancelEditCreateAttempt}>
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Exercises
+              </Button>
+            </div>
         </div>
-        <div className="flex-grow grid grid-cols-1 md:grid-cols-4 gap-4 h-[calc(100vh-15rem)] md:h-[calc(100vh-12rem)]">
-            <Card className="flex flex-col h-full overflow-hidden md:col-span-1">
-                <CardHeader>
-                    <CardTitle className="font-headline flex items-center gap-2 text-xl">
-                        <MonitorPlay className="w-6 h-6" /> Exercise Instructions
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex-grow p-0 md:p-1">
-                    <iframe
-                        srcDoc={currentAttemptingExercise.htmlContent}
-                        title={`${currentAttemptingExercise.title} - Instructions`}
-                        className="w-full h-full border rounded-md bg-white"
-                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                    />
-                </CardContent>
-            </Card>
-            <div className="h-full overflow-y-auto md:col-span-3">
+        <div className={cn(
+            "flex-grow grid grid-cols-1 md:grid-cols-4 gap-4 h-[calc(100vh-15rem)] md:h-[calc(100vh-12rem)]"
+          )}
+        >
+            {instructionsVisible && (
+              <Card className="flex flex-col h-full overflow-hidden md:col-span-1">
+                  <CardHeader>
+                      <CardTitle className="font-headline flex items-center gap-2 text-xl">
+                          <MonitorPlay className="w-6 h-6" /> Exercise Instructions
+                      </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-grow p-0 md:p-1">
+                      <iframe
+                          srcDoc={currentAttemptingExercise.htmlContent}
+                          title={`${currentAttemptingExercise.title} - Instructions`}
+                          className="w-full h-full border rounded-md bg-white"
+                          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                      />
+                  </CardContent>
+              </Card>
+            )}
+            <div className={cn(
+                "h-full overflow-y-auto",
+                instructionsVisible ? "md:col-span-3" : "md:col-span-4"
+              )}
+            >
                  <JavaEditor localStorageSuffix={`_exercise_${currentAttemptingExercise.id}`} />
             </div>
         </div>
@@ -395,3 +415,5 @@ export default function ExercisesPage() {
   );
 }
 
+
+    
