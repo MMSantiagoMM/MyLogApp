@@ -3,11 +3,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { compileCode, CompileCodeInput, CompileCodeOutput } from '@/ai/flows/compile-code';
-import { TerminalSquare, Play, Loader2, AlertTriangle, FileInputIcon } from "lucide-react";
+import { TerminalSquare, Play, Loader2, AlertTriangle, FileInputIcon, ChevronDown } from "lucide-react";
 import Editor from "@monaco-editor/react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const defaultJavaCode = `import java.util.Scanner;
 
@@ -33,7 +39,7 @@ public class Main {
 interface JavaEditorProps {
   initialCode?: string;
   initialUserInput?: string;
-  localStorageSuffix?: string; // To allow different instances to use different localStorage keys
+  localStorageSuffix?: string; 
 }
 
 export default function JavaEditor({ initialCode, initialUserInput, localStorageSuffix = "" }: JavaEditorProps) {
@@ -50,13 +56,13 @@ export default function JavaEditor({ initialCode, initialUserInput, localStorage
 
   useEffect(() => {
     setIsMounted(true);
-    if (!initialCode) { // Only load from localStorage if no initialCode prop is passed
+    if (!initialCode) { 
       const savedCode = localStorage.getItem(codeKey);
       if (savedCode) {
         setCode(savedCode);
       }
     }
-    if (!initialUserInput) { // Only load from localStorage if no initialUserInput prop is passed
+    if (!initialUserInput) { 
       const savedUserInput = localStorage.getItem(userInputKey);
       if (savedUserInput) {
         setUserInput(savedUserInput);
@@ -81,13 +87,13 @@ export default function JavaEditor({ initialCode, initialUserInput, localStorage
   }, [codeKey, userInputKey, initialCode, initialUserInput]);
   
   useEffect(() => {
-    if (isMounted && !initialCode) { // Only save to localStorage if no initialCode prop is passed
+    if (isMounted && !initialCode) { 
       localStorage.setItem(codeKey, code);
     }
   }, [code, isMounted, codeKey, initialCode]);
 
   useEffect(() => {
-    if (isMounted && !initialUserInput) { // Only save to localStorage if no initialUserInput prop is passed
+    if (isMounted && !initialUserInput) { 
       localStorage.setItem(userInputKey, userInput);
     }
   }, [userInput, isMounted, userInputKey, initialUserInput]);
@@ -97,8 +103,8 @@ export default function JavaEditor({ initialCode, initialUserInput, localStorage
     setOutput("");
     setError(null);
     try {
-      const input: CompileCodeInput = { code, userInput: userInput || undefined };
-      const result: CompileCodeOutput = await compileCode(input);
+      const inputData: CompileCodeInput = { code, userInput: userInput || undefined };
+      const result: CompileCodeOutput = await compileCode(inputData);
       setOutput(result.output);
     } catch (e: any) {
       setError(e.message || "An unexpected error occurred during compilation.");
@@ -108,7 +114,7 @@ export default function JavaEditor({ initialCode, initialUserInput, localStorage
     }
   };
 
-  if (!isMounted && typeof window !== "undefined") { // Basic check for client-side rendering
+  if (!isMounted && typeof window !== "undefined") {
     return (
       <div className="flex justify-center items-center h-full py-10">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -117,95 +123,106 @@ export default function JavaEditor({ initialCode, initialUserInput, localStorage
   }
 
   return (
-    <div className="space-y-6 w-full h-full flex flex-col">
-      <div className="flex-grow grid md:grid-cols-1 gap-6"> {/* Changed to 1 column for better stacking in split view */}
-        <div className="space-y-6 flex flex-col">
-          <Card className="flex-grow flex flex-col">
-            <CardHeader>
-              <CardTitle className="font-headline flex items-center gap-2 text-xl">
-                <TerminalSquare className="w-5 h-5" />
-                Code Editor
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col p-1"> {/* MODIFIED: Reduced padding, removed space-y-4 */}
-              <div className="rounded-md border overflow-hidden flex-grow h-full"> {/* MODIFIED: Added h-full */}
-                <Editor
-                  height="100%" // Make editor take full height of its container
-                  language="java"
-                  theme={editorTheme}
-                  value={code}
-                  onChange={(value) => setCode(value || "")}
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 13,
-                    wordWrap: "on",
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                  }}
-                />
-              </div>
-            </CardContent>
-          </Card>
+    <div className="space-y-4 h-full flex flex-col">
+      <Card className="flex-grow flex flex-col">
+        <CardHeader>
+          <CardTitle className="font-headline flex items-center gap-2 text-xl">
+            <TerminalSquare className="w-5 h-5" />
+            Code Editor
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex-grow p-1">
+          <div className="rounded-md border overflow-hidden h-full">
+            <Editor
+              height="100%"
+              language="java"
+              theme={editorTheme}
+              value={code}
+              onChange={(value) => setCode(value || "")}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 13,
+                wordWrap: "on",
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+              }}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
+      <Button onClick={handleRunCode} disabled={isLoading} className="w-full">
+        {isLoading ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <Play className="mr-2 h-4 w-4" />
+        )}
+        Compile & Run
+      </Button>
+
+      <Accordion type="multiple" className="w-full space-y-4">
+        <AccordionItem value="item-1" className="border-b-0">
           <Card>
-            <CardHeader>
-              <CardTitle className="font-headline flex items-center gap-2 text-xl">
-                <FileInputIcon className="w-5 h-5" />
-                Standard Input (Optional)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                placeholder="Enter input for your program here..."
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                className="h-20 font-code text-sm" // Reduced height
-              />
-            </CardContent>
+            <AccordionTrigger className="w-full p-0 hover:no-underline">
+              <CardHeader className="flex flex-row items-center justify-between w-full py-3 px-4"> {/* Adjusted padding */}
+                <div className="flex items-center gap-2">
+                  <FileInputIcon className="w-5 h-5" />
+                  <CardTitle className="font-headline text-lg">Standard Input (Optional)</CardTitle>
+                </div>
+                {/* AccordionTrigger will add its own chevron */}
+              </CardHeader>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="pt-0 pb-3 px-4"> {/* Adjusted padding */}
+                <Textarea
+                  placeholder="Enter input for your program here..."
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  className="h-24 font-code text-sm" 
+                />
+              </CardContent>
+            </AccordionContent>
           </Card>
-        </div>
+        </AccordionItem>
 
-        <div className="space-y-6 flex flex-col">
-           <Button onClick={handleRunCode} disabled={isLoading} className="w-full">
-            {isLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Play className="mr-2 h-4 w-4" />
-            )}
-            Compile & Run
-          </Button>
-          <Card className="flex-grow flex flex-col">
-            <CardHeader>
-              <CardTitle className="font-headline text-xl">Output</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-grow">
-              {isLoading && (
-                <div className="flex items-center text-muted-foreground">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Compiling and running...
-                </div>
-              )}
-              {error && (
-                <div className="p-3 bg-destructive/10 text-destructive rounded-md flex items-start gap-2">
-                  <AlertTriangle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold">Error:</p>
-                    <pre className="whitespace-pre-wrap font-code text-sm">{error}</pre>
+        <AccordionItem value="item-2" className="border-b-0">
+          <Card>
+            <AccordionTrigger className="w-full p-0 hover:no-underline">
+              <CardHeader className="flex flex-row items-center justify-between w-full py-3 px-4"> {/* Adjusted padding */}
+                <CardTitle className="font-headline text-lg">Output</CardTitle>
+                {/* AccordionTrigger will add its own chevron */}
+              </CardHeader>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="pt-0 pb-3 px-4"> {/* Adjusted padding */}
+                {isLoading && (
+                  <div className="flex items-center text-muted-foreground">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Compiling and running...
                   </div>
-                </div>
-              )}
-              {!isLoading && !error && output && (
-                <div className="p-3 bg-secondary/30 rounded-md">
-                   <pre className="whitespace-pre-wrap font-code text-sm">{output}</pre>
-                </div>
-              )}
-              {!isLoading && !error && !output && (
-                <p className="text-muted-foreground text-sm">Output will appear here.</p>
-              )}
-            </CardContent>
+                )}
+                {error && (
+                  <div className="p-3 bg-destructive/10 text-destructive rounded-md flex items-start gap-2">
+                    <AlertTriangle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-semibold">Error:</p>
+                      <pre className="whitespace-pre-wrap font-code text-sm">{error}</pre>
+                    </div>
+                  </div>
+                )}
+                {!isLoading && !error && output && (
+                  <div className="p-3 bg-secondary/30 rounded-md">
+                    <pre className="whitespace-pre-wrap font-code text-sm">{output}</pre>
+                  </div>
+                )}
+                {!isLoading && !error && !output && (
+                  <p className="text-muted-foreground text-sm">Output will appear here after running code.</p>
+                )}
+              </CardContent>
+            </AccordionContent>
           </Card>
-        </div>
-      </div>
+        </AccordionItem>
+      </Accordion>
     </div>
   );
 }
