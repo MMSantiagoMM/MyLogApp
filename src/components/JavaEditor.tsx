@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { compileCode, CompileCodeInput, CompileCodeOutput } from '@/ai/flows/compile-code';
-import { TerminalSquare, Play, Loader2, AlertTriangle, FileInputIcon, ChevronDown } from "lucide-react";
+import { TerminalSquare, Play, Loader2, AlertTriangle, FileInputIcon } from "lucide-react";
 import Editor from "@monaco-editor/react";
 import {
   Accordion,
@@ -123,7 +123,7 @@ export default function JavaEditor({ initialCode, initialUserInput, localStorage
   }
 
   return (
-    <div className="space-y-4 h-full flex flex-col">
+    <div className="space-y-2 h-full flex flex-col"> {/* Reduced space-y */}
       <Card className="flex-grow flex flex-col">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2 text-xl">
@@ -160,20 +160,19 @@ export default function JavaEditor({ initialCode, initialUserInput, localStorage
         Compile & Run
       </Button>
 
-      <Accordion type="multiple" className="w-full space-y-4">
+      <Accordion type="multiple" className="w-full space-y-2"> {/* Reduced space-y */}
         <AccordionItem value="item-1" className="border-b-0">
           <Card>
             <AccordionTrigger className="w-full p-0 hover:no-underline">
-              <CardHeader className="flex flex-row items-center justify-between w-full py-3 px-4"> {/* Adjusted padding */}
+              <CardHeader className="flex flex-row items-center justify-between w-full py-2 px-3"> {/* Compacted padding */}
                 <div className="flex items-center gap-2">
                   <FileInputIcon className="w-5 h-5" />
-                  <CardTitle className="font-headline text-lg">Standard Input (Optional)</CardTitle>
+                  <CardTitle className="font-headline text-base">Standard Input (Optional)</CardTitle> {/* Reduced font size */}
                 </div>
-                {/* AccordionTrigger will add its own chevron */}
               </CardHeader>
             </AccordionTrigger>
             <AccordionContent>
-              <CardContent className="pt-0 pb-3 px-4"> {/* Adjusted padding */}
+              <CardContent className="pt-0 pb-3 px-4">
                 <Textarea
                   placeholder="Enter input for your program here..."
                   value={userInput}
@@ -188,13 +187,12 @@ export default function JavaEditor({ initialCode, initialUserInput, localStorage
         <AccordionItem value="item-2" className="border-b-0">
           <Card>
             <AccordionTrigger className="w-full p-0 hover:no-underline">
-              <CardHeader className="flex flex-row items-center justify-between w-full py-3 px-4"> {/* Adjusted padding */}
-                <CardTitle className="font-headline text-lg">Output</CardTitle>
-                {/* AccordionTrigger will add its own chevron */}
+              <CardHeader className="flex flex-row items-center justify-between w-full py-2 px-3"> {/* Compacted padding */}
+                 <CardTitle className="font-headline text-base">Output</CardTitle> {/* Reduced font size */}
               </CardHeader>
             </AccordionTrigger>
             <AccordionContent>
-              <CardContent className="pt-0 pb-3 px-4"> {/* Adjusted padding */}
+              <CardContent className="pt-0 pb-3 px-4">
                 {isLoading && (
                   <div className="flex items-center text-muted-foreground">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
