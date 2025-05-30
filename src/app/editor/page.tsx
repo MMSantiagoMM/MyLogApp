@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { compileCode, CompileCodeInput, CompileCodeOutput } from '@/ai/flows/compile-code';
-import { TerminalSquare, Play, Loader2, AlertTriangle, FileInputIcon, Maximize2, Minimize2 } from "lucide-react";
+import { TerminalSquare, Play, Loader2, AlertTriangle, FileInputIcon } from "lucide-react";
 import { cn } from '@/lib/utils';
 
 const defaultJavaCode = `import java.util.Scanner;
@@ -45,8 +45,6 @@ export default function JavaCompilerHorizontalPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  const [sidePanesVisible, setSidePanesVisible] = useState(true);
-
   const codeKey = `${LOCAL_STORAGE_PREFIX}${CODE_KEY_SUFFIX}`;
   const userInputKey = `${LOCAL_STORAGE_PREFIX}${USER_INPUT_KEY_SUFFIX}`;
 
@@ -101,10 +99,6 @@ export default function JavaCompilerHorizontalPage() {
     }
   };
 
-  const toggleSidePanes = () => {
-    setSidePanesVisible(prev => !prev);
-  };
-
   if (!isMounted && typeof window !== "undefined") {
     return (
       <div className="flex flex-col justify-center items-center h-screen w-screen fixed inset-0 bg-background z-50">
@@ -116,25 +110,19 @@ export default function JavaCompilerHorizontalPage() {
 
   return (
     <div className="flex flex-col h-full p-0 m-0">
-      <div className="flex-shrink-0 p-2 border-b flex justify-end items-center">
-        <Button variant="outline" size="sm" onClick={toggleSidePanes}>
-          {sidePanesVisible ? (
-            <Maximize2 className="mr-2 h-4 w-4" />
-          ) : (
-            <Minimize2 className="mr-2 h-4 w-4" />
-          )}
-          {sidePanesVisible ? 'Maximize Editor' : 'Restore Panes'}
-        </Button>
-      </div>
+      {/* Header can be removed or repurposed if needed, for now it's empty as the button is gone */}
+      {/* <div className="flex-shrink-0 p-2 border-b flex justify-end items-center"> */}
+      {/* Button was here */}
+      {/* </div> */}
 
       <div className={cn(
         "flex-grow grid gap-2 p-2 min-h-0",
-        sidePanesVisible ? "grid-cols-1 md:grid-cols-4" : "grid-cols-1"
+        "grid-cols-1 md:grid-cols-4" 
       )}>
         {/* Code Editor Pane */}
         <Card className={cn(
           "flex flex-col",
-          sidePanesVisible ? "md:col-span-3" : "col-span-1 md:col-span-4"
+          "md:col-span-3" 
         )}>
           <CardHeader className="py-3 px-4">
             <CardTitle className="font-headline flex items-center gap-2 text-lg">
@@ -162,9 +150,8 @@ export default function JavaCompilerHorizontalPage() {
           </CardContent>
         </Card>
 
-        {/* Side Panes (Input & Output) - Conditionally Rendered */}
-        {sidePanesVisible && (
-          <div className="md:col-span-1 flex flex-col gap-2 min-h-0">
+        {/* Side Panes (Input & Output) */}
+        <div className="md:col-span-1 flex flex-col gap-2 min-h-0">
             {/* Standard Input Pane */}
             <Card className="flex flex-col flex-shrink-0">
               <CardHeader className="py-3 px-4">
@@ -216,7 +203,6 @@ export default function JavaCompilerHorizontalPage() {
               </CardContent>
             </Card>
           </div>
-        )}
       </div>
       
       <div className="flex-shrink-0 p-2 border-t">
@@ -232,5 +218,3 @@ export default function JavaCompilerHorizontalPage() {
     </div>
   );
 }
-
-    
