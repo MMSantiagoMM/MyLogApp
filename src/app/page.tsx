@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileCode, Archive, ListChecks, Lightbulb, BookOpen, Users } from "lucide-react";
@@ -14,14 +15,14 @@ export default function HomePage() {
         </p>
       </section>
 
-      <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-        <FeatureCard
+      <section className="grid md:grid-cols-2 lg:grid-cols-2 gap-8 mb-12"> {/* Adjusted grid for 2 items */}
+        {/* <FeatureCard
           icon={<FileCode className="w-10 h-10 text-primary" />}
           title="Online Java Editor"
           description="Write, compile, and run Java code directly in your browser. Get instant feedback and debug effectively."
           link="/editor"
           linkText="Try the Editor"
-        />
+        /> */}
         <FeatureCard
           icon={<Archive className="w-10 h-10 text-primary" />}
           title="File Repository"
@@ -45,7 +46,8 @@ export default function HomePage() {
             Mi Cesde Java Compiler is designed to provide a seamless and productive environment for students and developers. 
             Start exploring the features and make the most of your learning experience.
           </p>
-          <Link href="/editor">
+          {/* Link to exercises or files as a general get started if editor is removed */}
+          <Link href="/exercises"> 
             <Button size="lg">Get Started</Button>
           </Link>
         </div>

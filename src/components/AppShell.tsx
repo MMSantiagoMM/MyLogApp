@@ -23,8 +23,8 @@ import {
   LayoutDashboard,
   Archive,
   ListChecks,
-  TerminalSquare,
-  Presentation, // Added Presentation icon
+  // TerminalSquare, // Removed TerminalSquare
+  Presentation,
   Moon,
   Sun,
 } from "lucide-react";
@@ -85,8 +85,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/", icon: LayoutDashboard, label: "Home" },
     { href: "/files", icon: Archive, label: "File Repository" },
     { href: "/exercises", icon: ListChecks, label: "Exercises" },
-    { href: "/editor", icon: TerminalSquare, label: "Java Editor" },
-    { href: "/html-presenter", icon: Presentation, label: "HTML Presenter" }, // Added new nav item
+    // { href: "/editor", icon: TerminalSquare, label: "Java Editor" }, // Removed Java Editor link
+    { href: "/html-presenter", icon: Presentation, label: "HTML Presenter" },
   ];
 
   return (
