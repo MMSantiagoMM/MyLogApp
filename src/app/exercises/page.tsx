@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import Editor from "@monaco-editor/react";
 import { 
   BookMarked, CodeXml, MonitorPlay, Loader2, PlusCircle, Edit3, Trash2, Save, XCircle, FileText, Expand, PlayCircle, ArrowLeft,
-  PanelLeftClose, PanelLeftOpen // Added Panel icons
+  PanelLeftClose, PanelLeftOpen, ArrowRightLeft // Added ArrowRightLeft
 } from "lucide-react";
 import {
   AlertDialog,
@@ -55,6 +55,7 @@ interface ExerciseItem {
 }
 
 const LOCAL_STORAGE_KEY = "htmlExercisesList_v1"; 
+type InstructionPanelState = 'hidden' | 'small' | 'medium';
 
 export default function ExercisesPage() {
   const [exercises, setExercises] = useState<ExerciseItem[]>([]);
@@ -68,7 +69,7 @@ export default function ExercisesPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [editorTheme, setEditorTheme] = useState('vs-light');
   const [exerciseToDelete, setExerciseToDelete] = useState<string | null>(null);
-  const [instructionsVisible, setInstructionsVisible] = useState(true);
+  const [instructionPanelState, setInstructionPanelState] = useState<InstructionPanelState>('small');
 
 
   useEffect(() => {
@@ -129,7 +130,7 @@ export default function ExercisesPage() {
   const handleAttemptClick = (exercise: ExerciseItem) => {
     setCurrentAttemptingExercise(exercise);
     setCurrentEditingExercise(null);
-    setInstructionsVisible(true); // Reset to show instructions when starting a new attempt
+    setInstructionPanelState('small'); // Reset to show instructions (small) when starting a new attempt
     setView('attempt');
   };
 
@@ -183,6 +184,27 @@ export default function ExercisesPage() {
       alert("Failed to open new tab. Please check your pop-up blocker settings.");
     }
   };
+
+  const handleToggleInstructionPanelSize = () => {
+    setInstructionPanelState(prevState => {
+      if (prevState === 'small') return 'medium';
+      if (prevState === 'medium') return 'hidden';
+      return 'small'; // from 'hidden' to 'small'
+    });
+  };
+
+  const getInstructionPanelButtonProps = () => {
+    switch (instructionPanelState) {
+      case 'small':
+        return { text: 'Enlarge Instructions', Icon: ArrowRightLeft };
+      case 'medium':
+        return { text: 'Hide Instructions', Icon: PanelLeftClose };
+      case 'hidden':
+      default:
+        return { text: 'Show Instructions', Icon: PanelLeftOpen };
+    }
+  };
+
 
   if (!isMounted) {
     return (
@@ -289,6 +311,7 @@ export default function ExercisesPage() {
   }
 
   if (view === 'attempt' && currentAttemptingExercise) {
+    const { text: instructionButtonText, Icon: InstructionButtonIcon } = getInstructionPanelButtonProps();
     return (
       <div className="space-y-4 h-full flex flex-col">
         <div className="flex justify-between items-center flex-wrap gap-y-2">
@@ -296,9 +319,9 @@ export default function ExercisesPage() {
                 Attempting: {currentAttemptingExercise.title}
             </h1>
             <div className="flex gap-2 flex-wrap">
-              <Button variant="outline" onClick={() => setInstructionsVisible(!instructionsVisible)}>
-                {instructionsVisible ? <PanelLeftClose className="mr-2 h-4 w-4" /> : <PanelLeftOpen className="mr-2 h-4 w-4" />}
-                {instructionsVisible ? 'Hide Instructions' : 'Show Instructions'}
+              <Button variant="outline" onClick={handleToggleInstructionPanelSize}>
+                <InstructionButtonIcon className="mr-2 h-4 w-4" />
+                {instructionButtonText}
               </Button>
               <Button variant="outline" onClick={handleCancelEditCreateAttempt}>
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back to Exercises
@@ -306,11 +329,16 @@ export default function ExercisesPage() {
             </div>
         </div>
         <div className={cn(
-            "flex-grow grid grid-cols-1 md:grid-cols-4 gap-4 h-[calc(100vh-15rem)] md:h-[calc(100vh-12rem)]"
+            "flex-grow grid grid-cols-1 md:grid-cols-4 gap-4 h-[calc(100vh-15rem)] md:h-[calc(100vh-12rem)]" // Base grid is 4 cols for md+
           )}
         >
-            {instructionsVisible && (
-              <Card className="flex flex-col h-full overflow-hidden md:col-span-1">
+            {instructionPanelState !== 'hidden' && (
+              <Card className={cn(
+                  "flex flex-col h-full overflow-hidden",
+                  instructionPanelState === 'small' && "md:col-span-1",
+                  instructionPanelState === 'medium' && "md:col-span-2"
+                )}
+              >
                   <CardHeader>
                       <CardTitle className="font-headline flex items-center gap-2 text-xl">
                           <MonitorPlay className="w-6 h-6" /> Exercise Instructions
@@ -328,7 +356,9 @@ export default function ExercisesPage() {
             )}
             <div className={cn(
                 "h-full overflow-y-auto",
-                instructionsVisible ? "md:col-span-3" : "md:col-span-4"
+                instructionPanelState === 'hidden' && "md:col-span-4",
+                instructionPanelState === 'small' && "md:col-span-3",
+                instructionPanelState === 'medium' && "md:col-span-2"
               )}
             >
                  <JavaEditor localStorageSuffix={`_exercise_${currentAttemptingExercise.id}`} />
@@ -414,6 +444,3 @@ export default function ExercisesPage() {
     </div>
   );
 }
-
-
-    
