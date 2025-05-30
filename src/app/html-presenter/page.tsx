@@ -52,7 +52,7 @@ interface HtmlPresenterItem {
   createdAt: string;
 }
 
-const LOCAL_STORAGE_KEY = "htmlPresentersList_v1"; // Added _v1 for potential future migrations
+const LOCAL_STORAGE_KEY = "htmlPresentersList_v1"; 
 
 export default function HtmlPresenterPage() {
   const [presenters, setPresenters] = useState<HtmlPresenterItem[]>([]);
@@ -75,7 +75,7 @@ export default function HtmlPresenterPage() {
       }
     } catch (error) {
       console.error("Failed to load presenters from localStorage:", error);
-      setPresenters([]); // Fallback to empty list on error
+      setPresenters([]); 
     }
 
     const updateTheme = () => {
@@ -121,7 +121,7 @@ export default function HtmlPresenterPage() {
 
   const handleSavePresenter = () => {
     if (!editingTitle.trim()) {
-      alert("Title cannot be empty."); // Simple validation
+      alert("Title cannot be empty."); 
       return;
     }
 
@@ -202,13 +202,24 @@ export default function HtmlPresenterPage() {
                     Created: {new Date(presenter.createdAt).toLocaleDateString()}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-grow">
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {/* Basic preview of content, could be improved */}
-                    {presenter.htmlContent.replace(/<[^>]*>?/gm, '').substring(0, 100) || "No content preview."}
-                  </p>
+                <CardContent className="flex-grow pt-2">
+                  <div className="w-full h-48 border rounded-md overflow-hidden bg-white relative shadow-inner">
+                    {presenter.htmlContent ? (
+                      <iframe
+                        srcDoc={`<style>body{zoom:0.5; overflow:hidden; margin:0; padding:8px; box-sizing:border-box;} html,body{width:200%;height:200%;}</style>${presenter.htmlContent}`}
+                        title={`${presenter.title} - Preview`}
+                        className="w-full h-full border-0"
+                        sandbox="allow-scripts allow-same-origin"
+                        scrolling="no" 
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        <p>No HTML content to preview.</p>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
-                <CardFooter className="flex justify-end gap-2">
+                <CardFooter className="flex justify-end gap-2 pt-4">
                   <Button variant="outline" size="sm" onClick={() => handleEditClick(presenter)}>
                     <Edit3 className="mr-1 h-4 w-4" /> Edit
                   </Button>
@@ -270,7 +281,7 @@ export default function HtmlPresenterPage() {
         className="text-lg font-semibold mb-4"
       />
 
-      <div className="grid md:grid-cols-2 gap-8 h-[calc(100vh-14rem)] md:h-[calc(100vh-12rem)]"> {/* Increased height */}
+      <div className="grid md:grid-cols-2 gap-8 h-[calc(100vh-16rem)] md:h-[calc(100vh-14rem)]">
         <Card className="flex flex-col h-full">
           <CardHeader>
             <CardTitle className="font-headline flex items-center gap-2">
