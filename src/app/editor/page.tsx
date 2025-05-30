@@ -1,12 +1,12 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { compileCode, CompileCodeInput, CompileCodeOutput } from '@/ai/flows/compile-code';
-import { TerminalSquare, Play, Loader2, AlertTriangle, CheckCircle } from "lucide-react";
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { TerminalSquare, Play, Loader2, AlertTriangle } from "lucide-react";
+import Editor from "@monaco-editor/react";
 
 const defaultJavaCode = `public class Main {
     public static void main(String[] args) {
@@ -21,19 +21,36 @@ export default function JavaEditorPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [editorTheme, setEditorTheme] = useState('vs-light');
 
   useEffect(() => {
     setIsMounted(true);
-    // Load code from localStorage if available
     const savedCode = localStorage.getItem("javaCode");
     if (savedCode) {
       setCode(savedCode);
     }
+
+    // Set editor theme based on HTML class
+    const updateTheme = () => {
+      if (document.documentElement.classList.contains('dark')) {
+        setEditorTheme('vs-dark');
+      } else {
+        setEditorTheme('vs-light');
+      }
+    };
+    updateTheme(); // Initial theme check
+
+    // Observe changes to the html class for dynamic theme updates
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    return () => {
+      observer.disconnect();
+    };
   }, []);
   
   useEffect(() => {
     if (isMounted) {
-      // Save code to localStorage on change
       localStorage.setItem("javaCode", code);
     }
   }, [code, isMounted]);
@@ -48,7 +65,7 @@ export default function JavaEditorPage() {
       setOutput(result.output);
     } catch (e: any) {
       setError(e.message || "An unexpected error occurred during compilation.");
-      setOutput(""); // Clear output on error
+      setOutput(""); 
     } finally {
       setIsLoading(false);
     }
@@ -77,15 +94,22 @@ export default function JavaEditorPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <ScrollArea className="h-80 w-full rounded-md border">
-            <Textarea
+          <div className="rounded-md border overflow-hidden">
+            <Editor
+              height="320px"
+              language="java"
+              theme={editorTheme}
               value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="Enter your Java code here..."
-              className="min-h-[300px] resize-none font-code text-sm p-4 focus-visible:ring-primary"
-              aria-label="Java Code Editor"
+              onChange={(value) => setCode(value || "")}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                wordWrap: "on",
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+              }}
             />
-          </ScrollArea>
+          </div>
           <Button onClick={handleRunCode} disabled={isLoading}>
             {isLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
