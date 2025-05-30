@@ -1,16 +1,30 @@
 
 "use client";
 
-import React from 'react';
-import JavaEditor from '@/components/JavaEditor';
-import { Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import JavaEditor, { type JavaEditorRef } from '@/components/JavaEditor';
+import { Button } from "@/components/ui/button";
+import { Loader2, Maximize2, Minimize2 } from 'lucide-react'; // Added Maximize2, Minimize2
 
 export default function NewJavaEditorPage() {
   const [isMounted, setIsMounted] = React.useState(false);
+  const editorRef = useRef<JavaEditorRef>(null);
+  const [panesForceCollapsed, setPanesForceCollapsed] = useState(false);
 
   React.useEffect(() => {
     setIsMounted(true);
+    // Check initial collapse state from editor after mount
+    if (editorRef.current) {
+        setPanesForceCollapsed(editorRef.current.arePanesCurrentlyForcedCollapsed());
+    }
   }, []);
+
+  const handleTogglePanes = () => {
+    if (editorRef.current) {
+      const newCollapseState = editorRef.current.togglePanes();
+      setPanesForceCollapsed(newCollapseState);
+    }
+  };
 
   if (!isMounted) {
     return (
@@ -22,14 +36,20 @@ export default function NewJavaEditorPage() {
   }
 
   return (
-    <div className="flex flex-col h-full w-full p-0 m-0">
-      {/* 
-        This page is designed to give maximum space to the JavaEditor.
-        The JavaEditor component itself handles its internal layout,
-        including collapsible input/output panes which allow vertical resizing.
-        Horizontal size is determined by this page's container, which is set to full width.
-      */}
-      <JavaEditor localStorageSuffix="_new_standalone_editor_v2" />
+    <div className="flex flex-col h-full w-full p-0 m-0 relative">
+      <div className="absolute top-2 right-2 z-10">
+        <Button variant="outline" size="sm" onClick={handleTogglePanes}>
+          {panesForceCollapsed ? (
+            <Minimize2 className="mr-2 h-4 w-4" />
+          ) : (
+            <Maximize2 className="mr-2 h-4 w-4" />
+          )}
+          {panesForceCollapsed ? 'Restore Panes' : 'Maximize Editor'}
+        </Button>
+      </div>
+      <div className="flex-grow min-h-0"> {/* Ensure JavaEditor can grow properly */}
+        <JavaEditor ref={editorRef} localStorageSuffix="_standalone_editor_page" />
+      </div>
     </div>
   );
 }
