@@ -102,7 +102,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 Mi Cesde Java Compiler
               </span>
             </Link>
-            <SidebarTrigger className="group-data-[collapsible=icon]:hidden" />
+            <SidebarTrigger />
           </SidebarHeader>
           <SidebarContent className="flex-1 overflow-y-auto p-2">
             <SidebarMenu>
