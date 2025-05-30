@@ -23,7 +23,7 @@ import {
   LayoutDashboard,
   Archive,
   ListChecks,
-  // TerminalSquare, // Removed TerminalSquare
+  TerminalSquare, // Added TerminalSquare
   Presentation,
   Moon,
   Sun,
@@ -83,9 +83,9 @@ const NavItem = ({ href, icon: Icon, label }: { href: string; icon: React.Elemen
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", icon: LayoutDashboard, label: "Home" },
+    { href: "/editor", icon: TerminalSquare, label: "Java Editor" }, // Added Java Editor link
     { href: "/files", icon: Archive, label: "File Repository" },
     { href: "/exercises", icon: ListChecks, label: "Exercises" },
-    // { href: "/editor", icon: TerminalSquare, label: "Java Editor" }, // Removed Java Editor link
     { href: "/html-presenter", icon: Presentation, label: "HTML Presenter" },
   ];
 

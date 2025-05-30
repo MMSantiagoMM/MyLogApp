@@ -4,9 +4,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import JavaEditor, { type JavaEditorRef } from '@/components/JavaEditor';
 import { Button } from "@/components/ui/button";
-import { Loader2, Maximize2, Minimize2 } from 'lucide-react'; // Added Maximize2, Minimize2
+import { Loader2, Maximize2, Minimize2 } from 'lucide-react';
 
-export default function NewJavaEditorPage() {
+export default function JavaCompilerPage() {
   const [isMounted, setIsMounted] = React.useState(false);
   const editorRef = useRef<JavaEditorRef>(null);
   const [panesForceCollapsed, setPanesForceCollapsed] = useState(false);
@@ -14,6 +14,7 @@ export default function NewJavaEditorPage() {
   React.useEffect(() => {
     setIsMounted(true);
     // Check initial collapse state from editor after mount
+    // and ensure button state is synced if editor was already collapsed/expanded
     if (editorRef.current) {
         setPanesForceCollapsed(editorRef.current.arePanesCurrentlyForcedCollapsed());
     }
@@ -48,7 +49,8 @@ export default function NewJavaEditorPage() {
         </Button>
       </div>
       <div className="flex-grow min-h-0"> {/* Ensure JavaEditor can grow properly */}
-        <JavaEditor ref={editorRef} localStorageSuffix="_standalone_editor_page" />
+        {/* Added a unique suffix to avoid localStorage conflicts */}
+        <JavaEditor ref={editorRef} localStorageSuffix="_standalone_compiler_page" />
       </div>
     </div>
   );
