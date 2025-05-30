@@ -22,7 +22,7 @@ export default function JavaEditorPage() {
 
   return (
     <div className="flex flex-col h-full"> {/* Occupy full height of AppShell's main content area */}
-      <div className="py-4"> {/* Compact header for the title */}
+      <div className="py-2"> {/* Compacted header for the title */}
         <h1 className="text-3xl font-bold font-headline text-center sm:text-left">
           Java Online Compiler
         </h1>
