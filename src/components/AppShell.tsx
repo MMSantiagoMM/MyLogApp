@@ -23,7 +23,7 @@ import {
   LayoutDashboard,
   Archive,
   ListChecks,
-  TerminalSquare, // Added TerminalSquare
+  TerminalSquare,
   Presentation,
   Moon,
   Sun,
@@ -83,7 +83,7 @@ const NavItem = ({ href, icon: Icon, label }: { href: string; icon: React.Elemen
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", icon: LayoutDashboard, label: "Home" },
-    { href: "/editor", icon: TerminalSquare, label: "Java Editor" }, // Added Java Editor link
+    { href: "/editor", icon: TerminalSquare, label: "Java Editor" },
     { href: "/files", icon: Archive, label: "File Repository" },
     { href: "/exercises", icon: ListChecks, label: "Exercises" },
     { href: "/html-presenter", icon: Presentation, label: "HTML Presenter" },
@@ -129,7 +129,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </SidebarFooter>
         </Sidebar>
         <SidebarInset className="flex-1">
-          <main className="h-full overflow-y-auto p-2 md:p-4 lg:p-6">
+          <main className="h-full overflow-y-auto py-2 md:py-4 lg:py-6">
             {children}
           </main>
         </SidebarInset>
