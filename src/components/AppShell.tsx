@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -23,8 +24,7 @@ import {
   Archive,
   ListChecks,
   TerminalSquare,
-  Settings,
-  HelpCircle,
+  Presentation, // Added Presentation icon
   Moon,
   Sun,
 } from "lucide-react";
@@ -86,6 +86,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/files", icon: Archive, label: "File Repository" },
     { href: "/exercises", icon: ListChecks, label: "Exercises" },
     { href: "/editor", icon: TerminalSquare, label: "Java Editor" },
+    { href: "/html-presenter", icon: Presentation, label: "HTML Presenter" }, // Added new nav item
   ];
 
   return (
