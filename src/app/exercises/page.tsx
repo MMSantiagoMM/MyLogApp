@@ -294,7 +294,7 @@ export default function ExercisesPage() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Exercises
             </Button>
         </div>
-        <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-15rem)] md:h-[calc(100vh-12rem)]">
+        <div className="flex-grow grid grid-cols-1 md:grid-cols-4 gap-4 h-[calc(100vh-15rem)] md:h-[calc(100vh-12rem)]">
             <Card className="flex flex-col h-full overflow-hidden md:col-span-1">
                 <CardHeader>
                     <CardTitle className="font-headline flex items-center gap-2 text-xl">
@@ -310,7 +310,7 @@ export default function ExercisesPage() {
                     />
                 </CardContent>
             </Card>
-            <div className="h-full overflow-y-auto md:col-span-2">
+            <div className="h-full overflow-y-auto md:col-span-3">
                  <JavaEditor localStorageSuffix={`_exercise_${currentAttemptingExercise.id}`} />
             </div>
         </div>
