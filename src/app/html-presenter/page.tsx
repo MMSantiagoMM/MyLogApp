@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Editor from "@monaco-editor/react";
 import { 
-  Presentation, CodeXml, MonitorPlay, Loader2, List, PlusCircle, FileText, Edit3, Trash2, Save, XCircle, AlertTriangle 
+  Presentation, CodeXml, MonitorPlay, Loader2, List, PlusCircle, FileText, Edit3, Trash2, Save, XCircle, AlertTriangle, Expand
 } from "lucide-react";
 import {
   AlertDialog,
@@ -158,6 +158,17 @@ export default function HtmlPresenterPage() {
     setEditingHtmlContent(defaultHtmlContent);
   };
 
+  const handleExpandPresenter = (htmlContent: string) => {
+    const newWindow = window.open();
+    if (newWindow) {
+      newWindow.document.open();
+      newWindow.document.write(htmlContent);
+      newWindow.document.close();
+    } else {
+      alert("Failed to open new tab. Please check your pop-up blocker settings.");
+    }
+  };
+
   if (!isMounted) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -220,6 +231,9 @@ export default function HtmlPresenterPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-end gap-2 pt-4">
+                  <Button variant="outline" size="sm" onClick={() => handleExpandPresenter(presenter.htmlContent)}>
+                    <Expand className="mr-1 h-4 w-4" /> Expand
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => handleEditClick(presenter)}>
                     <Edit3 className="mr-1 h-4 w-4" /> Edit
                   </Button>
