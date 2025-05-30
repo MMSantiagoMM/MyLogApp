@@ -5,7 +5,7 @@ import React from 'react';
 import JavaEditor from '@/components/JavaEditor';
 import { Loader2 } from 'lucide-react';
 
-export default function JavaEditorPage() {
+export default function NewJavaEditorPage() {
   const [isMounted, setIsMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -14,23 +14,22 @@ export default function JavaEditorPage() {
 
   if (!isMounted) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <div className="flex flex-col justify-center items-center h-screen w-screen fixed inset-0 bg-background z-50">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        <p className="ml-4 text-lg text-foreground mt-4">Loading Editor...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full"> {/* Occupy full height of AppShell's main content area */}
-      <div className="py-2"> {/* Compacted header for the title */}
-        <h1 className="text-3xl font-bold font-headline text-center sm:text-left">
-          Java Online Compiler
-        </h1>
-      </div>
-      <div className="flex-grow flex flex-col min-h-0"> {/* Allows JavaEditor to expand */}
-        {/* JavaEditor component is designed to fill its container */}
-        <JavaEditor localStorageSuffix="_standalone_editor_page" />
-      </div>
+    <div className="flex flex-col h-full w-full p-0 m-0">
+      {/* 
+        This page is designed to give maximum space to the JavaEditor.
+        The JavaEditor component itself handles its internal layout,
+        including collapsible input/output panes which allow vertical resizing.
+        Horizontal size is determined by this page's container, which is set to full width.
+      */}
+      <JavaEditor localStorageSuffix="_new_standalone_editor_v2" />
     </div>
   );
 }
