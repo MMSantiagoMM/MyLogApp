@@ -169,11 +169,13 @@ export default function HtmlPresenterPage() {
   if (view === 'list') {
     return (
       <div className="space-y-8">
-        <div className="flex justify-between items-center">
+        <div>
           <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
             <Presentation className="w-8 h-8" />
             HTML Presenters
           </h1>
+        </div>
+        <div className="flex justify-end">
           <Button onClick={handleCreateNewClick}>
             <PlusCircle className="mr-2 h-5 w-5" />
             Create New Presenter
