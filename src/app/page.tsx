@@ -8,9 +8,9 @@ export default function HomePage() {
   return (
     <div className="container mx-auto py-8">
       <section className="text-center mb-12">
-        <h1 className="text-5xl font-bold mb-4 font-headline">Welcome to DevSpace</h1>
+        <h1 className="text-5xl font-bold mb-4 font-headline">Welcome to Mi Cesde Java Compiler</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Your personal platform for learning, coding, and collaboration. Upload files, tackle exercises, and compile Java code, all in one place.
+          Your platform for compiling Java code, managing files, and tackling coding exercises.
         </p>
       </section>
 
@@ -42,7 +42,7 @@ export default function HomePage() {
         <div className="flex-1">
           <h2 className="text-3xl font-bold mb-4 font-headline">Ready to Elevate Your Coding Journey?</h2>
           <p className="text-muted-foreground mb-6">
-            DevSpace is designed to provide a seamless and productive environment for students and developers. 
+            Mi Cesde Java Compiler is designed to provide a seamless and productive environment for students and developers. 
             Start exploring the features and make the most of your learning experience.
           </p>
           <Link href="/editor">

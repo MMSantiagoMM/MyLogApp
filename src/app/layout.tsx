@@ -3,8 +3,8 @@ import './globals.css';
 import AppShell from '@/components/AppShell'; // Import AppShell
 
 export const metadata: Metadata = {
-  title: 'DevSpace',
-  description: 'Personal web platform for file sharing, exercises, and online Java compilation.',
+  title: 'Mi Cesde Java Compiler',
+  description: 'An online platform to compile and run Java code, manage files, and practice exercises.',
 };
 
 export default function RootLayout({
