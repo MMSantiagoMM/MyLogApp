@@ -145,7 +145,7 @@ export default function VideoHubPage() {
   }
 
   return (
-    <div className="space-y-8 p-4 md:p-6">
+    <div className="space-y-8">
       <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
         <Youtube className="w-8 h-8 text-primary" />
         Video Hub
@@ -255,4 +255,3 @@ export default function VideoHubPage() {
     </div>
   );
 }
-

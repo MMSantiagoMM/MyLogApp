@@ -27,10 +27,10 @@ import {
   Presentation,
   Moon,
   Sun,
-  PanelLeftOpen, // Imported for trigger
-  PanelLeftClose, // Imported for trigger
+  PanelLeftOpen,
+  PanelLeftClose,
   Coffee, 
-  Youtube // Changed from Archive to Youtube
+  Youtube
 } from "lucide-react";
 
 // Simple theme toggle (conceptual, full implementation requires theme context)
@@ -88,7 +88,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", icon: LayoutDashboard, label: "Home" },
     { href: "/editor", icon: TerminalSquare, label: "Java Editor" },
-    { href: "/files", icon: Youtube, label: "Video Hub" }, // Changed label and icon
+    { href: "/files", icon: Youtube, label: "Video Hub" },
     { href: "/exercises", icon: ListChecks, label: "Exercises" },
     { href: "/html-presenter", icon: Presentation, label: "HTML Presenter" },
   ];
@@ -131,7 +131,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </SidebarFooter>
         </Sidebar>
         <SidebarInset className="flex-1">
-          <main className="h-full overflow-y-auto py-2 md:py-4 lg:py-6">
+          <main className="h-full overflow-y-auto p-4 md:p-6">
             {children}
           </main>
         </SidebarInset>
