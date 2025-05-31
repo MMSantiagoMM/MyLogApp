@@ -64,6 +64,8 @@ export default function VideoHubPage() {
   }, [videos, isMounted, toast]);
 
   const handleAddVideo = () => {
+    console.log("[VideoHubPage] handleAddVideo called. URL:", videoUrlInput, "Name:", videoNameInput);
+
     if (!videoUrlInput.trim()) {
       toast({
         variant: "destructive",
@@ -74,17 +76,17 @@ export default function VideoHubPage() {
     }
 
     const videoId = extractYouTubeVideoId(videoUrlInput);
+    console.log("[VideoHubPage] Extracted videoId:", videoId);
 
     if (!videoId) {
       toast({
         variant: "destructive",
         title: "Invalid URL",
-        description: "Could not extract a valid YouTube Video ID from the URL.",
+        description: "Could not extract a valid YouTube Video ID from the URL. Please check the link and try again.",
       });
       return;
     }
     
-    // Check for duplicates based on videoId
     if (videos.some(v => v.videoId === videoId)) {
       toast({
         variant: "destructive",
@@ -100,10 +102,17 @@ export default function VideoHubPage() {
       name: videoNameInput.trim() || `Video ${videos.length + 1}`,
       youtubeUrl: videoUrlInput,
       videoId: videoId,
-      addedDate: new Date().toLocaleDateString(),
+      addedDate: new Date().toISOString(), // Using ISOString for reliable sorting
     };
+    console.log("[VideoHubPage] New video object created:", newVideo);
 
-    setVideos(prevVideos => [newVideo, ...prevVideos].sort((a,b) => new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime() ));
+    setVideos(prevVideos => {
+      const updatedVideos = [newVideo, ...prevVideos].sort((a, b) => {
+        return new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime();
+      });
+      console.log("[VideoHubPage] Updated videos state:", updatedVideos);
+      return updatedVideos;
+    });
     setVideoUrlInput("");
     setVideoNameInput("");
     toast({
@@ -191,7 +200,7 @@ export default function VideoHubPage() {
                       {video.name}
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Added: {video.addedDate}
+                      Added: {new Date(video.addedDate).toLocaleDateString()}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex-grow p-0 aspect-video">
@@ -246,3 +255,4 @@ export default function VideoHubPage() {
     </div>
   );
 }
+
