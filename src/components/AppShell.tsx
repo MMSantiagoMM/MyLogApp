@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-// import Image from "next/image"; // Removed Image import
+import Image from "next/image"; 
 import { usePathname } from "next/navigation";
 import {
   SidebarProvider,
@@ -22,15 +22,15 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   LayoutDashboard,
-  Archive,
   ListChecks,
   TerminalSquare,
   Presentation,
   Moon,
   Sun,
-  PanelLeftOpen,
-  PanelLeftClose,
-  Coffee, // Added Coffee back
+  PanelLeftOpen, // Imported for trigger
+  PanelLeftClose, // Imported for trigger
+  Coffee, 
+  Youtube // Changed from Archive to Youtube
 } from "lucide-react";
 
 // Simple theme toggle (conceptual, full implementation requires theme context)
@@ -88,7 +88,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", icon: LayoutDashboard, label: "Home" },
     { href: "/editor", icon: TerminalSquare, label: "Java Editor" },
-    { href: "/files", icon: Archive, label: "File Repository" },
+    { href: "/files", icon: Youtube, label: "Video Hub" }, // Changed label and icon
     { href: "/exercises", icon: ListChecks, label: "Exercises" },
     { href: "/html-presenter", icon: Presentation, label: "HTML Presenter" },
   ];
