@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image"; // Added Image import
 import { usePathname } from "next/navigation";
 import {
   SidebarProvider,
@@ -27,7 +28,9 @@ import {
   Presentation,
   Moon,
   Sun,
-  Coffee, // Added Coffee icon
+  PanelLeftOpen,
+  PanelLeftClose,
+  // Coffee icon is no longer used directly here
 } from "lucide-react";
 
 // Simple theme toggle (conceptual, full implementation requires theme context)
@@ -96,7 +99,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar collapsible="icon" variant="sidebar" className="border-r">
           <SidebarHeader className="flex items-center justify-between p-3">
             <Link href="/" className="flex items-center gap-2">
-              <Coffee className="w-7 h-7 text-primary" />
+              <Image 
+                src="https://placehold.co/28x28.png" 
+                alt="My Logic App Logo" 
+                width={28} 
+                height={28}
+                data-ai-hint="java logo"
+              />
               <span className="font-headline text-base font-semibold text-foreground group-data-[collapsible=icon]:hidden">
                 My Logic App
               </span>
