@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,51 +19,69 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { db } from '@/lib/firebase'; // Import Firestore instance
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  deleteDoc, 
+  doc, 
+  query, 
+  orderBy, 
+  serverTimestamp,
+  Timestamp
+} from 'firebase/firestore';
 
-
-const LOCAL_STORAGE_KEY = "youtubeVideosList_v2";
+// Firestore collection name
+const VIDEOS_COLLECTION = "videos";
 
 export default function VideoHubPage() {
   const [videos, setVideos] = useState<VideoData[]>([]);
   const [videoUrlInput, setVideoUrlInput] = useState<string>("");
   const [videoNameInput, setVideoNameInput] = useState<string>("");
+  const [isLoadingVideos, setIsLoadingVideos] = useState<boolean>(true); // For initial load
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // For add/delete operations
   const [isMounted, setIsMounted] = useState(false);
   const [videoToDelete, setVideoToDelete] = useState<VideoData | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    setIsMounted(true);
+  const fetchVideos = useCallback(async () => {
+    setIsLoadingVideos(true);
     try {
-      const savedVideos = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (savedVideos) {
-        setVideos(JSON.parse(savedVideos));
-      }
+      const q = query(collection(db, VIDEOS_COLLECTION), orderBy("addedDate", "desc"));
+      const querySnapshot = await getDocs(q);
+      const fetchedVideos = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        // Convert Firestore Timestamp to ISO string
+        const addedDateTimestamp = data.addedDate as Timestamp;
+        return {
+          id: doc.id,
+          name: data.name,
+          youtubeUrl: data.youtubeUrl,
+          videoId: data.videoId,
+          addedDate: addedDateTimestamp?.toDate().toISOString() || new Date().toISOString(),
+        } as VideoData;
+      });
+      setVideos(fetchedVideos);
     } catch (error) {
-      console.error("Failed to load videos from localStorage:", error);
+      console.error("Error fetching videos from Firestore:", error);
       toast({
         variant: "destructive",
         title: "Error loading videos",
-        description: "Could not load saved videos from your browser.",
+        description: "Could not load videos from the database. Please check console for details.",
       });
+    } finally {
+      setIsLoadingVideos(false);
     }
   }, [toast]);
 
   useEffect(() => {
-    if (isMounted) {
-      try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(videos));
-      } catch (error) {
-        console.error("Failed to save videos to localStorage:", error);
-         toast({
-          variant: "destructive",
-          title: "Error saving videos",
-          description: "Could not save videos to your browser.",
-        });
-      }
-    }
-  }, [videos, isMounted, toast]);
+    setIsMounted(true);
+    fetchVideos();
+  }, [fetchVideos]);
 
-  const handleAddVideo = () => {
+
+  const handleAddVideo = async () => {
     console.log("[VideoHubPage] handleAddVideo called. URL:", videoUrlInput, "Name:", videoNameInput);
 
     if (!videoUrlInput.trim()) {
@@ -96,50 +114,72 @@ export default function VideoHubPage() {
       return;
     }
 
+    setIsSubmitting(true);
+    try {
+      const newVideoData = {
+        name: videoNameInput.trim() || `Video by ID: ${videoId}`,
+        youtubeUrl: videoUrlInput,
+        videoId: videoId,
+        addedDate: serverTimestamp(), // Use Firestore server timestamp
+      };
+      const docRef = await addDoc(collection(db, VIDEOS_COLLECTION), newVideoData);
+      console.log("[VideoHubPage] New video added to Firestore with ID:", docRef.id);
+      
+      // Optimistically update UI or re-fetch
+      // For simplicity, re-fetching after add.
+      await fetchVideos(); 
 
-    const newVideo: VideoData = {
-      id: Date.now().toString(),
-      name: videoNameInput.trim() || `Video ${videos.length + 1}`,
-      youtubeUrl: videoUrlInput,
-      videoId: videoId,
-      addedDate: new Date().toISOString(), // Using ISOString for reliable sorting
-    };
-    console.log("[VideoHubPage] New video object created:", newVideo);
-
-    setVideos(prevVideos => {
-      const updatedVideos = [newVideo, ...prevVideos].sort((a, b) => {
-        return new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime();
+      setVideoUrlInput("");
+      setVideoNameInput("");
+      toast({
+        title: "Video Added",
+        description: `"${newVideoData.name}" has been added to your Video Hub.`,
       });
-      console.log("[VideoHubPage] Updated videos state:", updatedVideos);
-      return updatedVideos;
-    });
-    setVideoUrlInput("");
-    setVideoNameInput("");
-    toast({
-      title: "Video Added",
-      description: `"${newVideo.name}" has been added to your Video Hub.`,
-    });
+    } catch (error) {
+      console.error("Error adding video to Firestore:", error);
+      toast({
+        variant: "destructive",
+        title: "Error Adding Video",
+        description: "Could not add video to the database. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDeleteVideo = (video: VideoData) => {
     setVideoToDelete(video);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (videoToDelete) {
-      setVideos(prevVideos => prevVideos.filter(v => v.id !== videoToDelete.id));
-      toast({
-        title: "Video Removed",
-        description: `"${videoToDelete.name}" has been removed.`,
-      });
-      setVideoToDelete(null);
+      setIsSubmitting(true);
+      try {
+        await deleteDoc(doc(db, VIDEOS_COLLECTION, videoToDelete.id));
+        setVideos(prevVideos => prevVideos.filter(v => v.id !== videoToDelete.id));
+        toast({
+          title: "Video Removed",
+          description: `"${videoToDelete.name}" has been removed.`,
+        });
+        setVideoToDelete(null);
+      } catch (error) {
+        console.error("Error deleting video from Firestore:", error);
+        toast({
+          variant: "destructive",
+          title: "Error Deleting Video",
+          description: "Could not delete video. Please try again.",
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
-  if (!isMounted) {
+  if (!isMounted || isLoadingVideos) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-4 text-lg">Loading Videos...</p>
       </div>
     );
   }
@@ -167,15 +207,18 @@ export default function VideoHubPage() {
             placeholder="YouTube Video URL (e.g., https://www.youtube.com/watch?v=...)" 
             value={videoUrlInput}
             onChange={(e) => setVideoUrlInput(e.target.value)}
+            disabled={isSubmitting}
           />
           <Input 
             type="text" 
             placeholder="Optional: Custom Video Name" 
             value={videoNameInput}
             onChange={(e) => setVideoNameInput(e.target.value)}
+            disabled={isSubmitting}
           />
-          <Button onClick={handleAddVideo} className="w-full sm:w-auto">
-            <Youtube className="mr-2 h-4 w-4" /> Add Video
+          <Button onClick={handleAddVideo} className="w-full sm:w-auto" disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Youtube className="mr-2 h-4 w-4" />}
+            Add Video
           </Button>
         </CardContent>
       </Card>
@@ -222,8 +265,10 @@ export default function VideoHubPage() {
                       onClick={() => handleDeleteVideo(video)} 
                       className="w-full"
                       aria-label={`Delete ${video.name}`}
+                      disabled={isSubmitting}
                     >
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                      {isSubmitting && videoToDelete?.id === video.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                       Delete
                     </Button>
                   </CardFooter>
                 </Card>
@@ -245,7 +290,8 @@ export default function VideoHubPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setVideoToDelete(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete}>
+              <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>
