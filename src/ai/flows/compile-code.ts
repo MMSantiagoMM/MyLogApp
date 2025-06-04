@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -30,7 +29,7 @@ export async function compileCode(input: CompileCodeInput): Promise<CompileCodeO
 const executeJavaCode = ai.defineTool(
   {
     name: 'executeJavaCode',
-    description: 'Executes Java code and returns the output as a string. If userInput is provided, it simulates passing that input to the standard input of the Java program.',
+    description: 'Executes Java code using an external API and returns the output as a string. If userInput is provided, it is passed as standard input to the Java program.',
     inputSchema: z.object({
       code: z.string().describe('The Java code to execute.'),
       userInput: z.string().optional().describe('Optional standard input for the Java code.'),
@@ -38,18 +37,57 @@ const executeJavaCode = ai.defineTool(
     outputSchema: z.string(),
   },
   async (input) => {
-    // This is a placeholder implementation.  In a real application, this would call
-    // a secure code execution service like JDoodle or a sandboxed Docker container.
-    // For now, it just returns a canned response.
-    console.log(`Executing Java code: ${input.code}`);
-    if (input.userInput) {
-      console.log(`With user input: ${input.userInput}`);
+    const clientId = process.env.JDOODLE_CLIENT_ID;
+    const clientSecret = process.env.JDOODLE_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      console.error("JDoodle API credentials (JDOODLE_CLIENT_ID, JDOODLE_CLIENT_SECRET) are not set in .env");
+      return "Error: JDoodle API credentials are not configured. Please contact the administrator.";
     }
-    let simulatedOutput = `Code execution is simulated. Real output would appear here.\nYour code was:\n${input.code}`;
-    if (input.userInput) {
-      simulatedOutput += `\n\nSimulated input received by program:\n${input.userInput}`;
+
+    const program = {
+      script: input.code,
+      stdin: input.userInput || "",
+      language: "java",
+      versionIndex: "4", // Corresponds to JDK 11 on JDoodle, "5" for JDK 17. Adjust as needed.
+      clientId: clientId,
+      clientSecret: clientSecret,
+    };
+
+    try {
+      const response = await fetch('https://api.jdoodle.com/v1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(program),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`JDoodle API error: ${response.status} ${response.statusText}`, errorBody);
+        return `Error executing code via JDoodle: ${response.statusText}. Details: ${errorBody}`;
+      }
+
+      const result = await response.json();
+
+      if (result.error) {
+        console.error("JDoodle execution error:", result.error);
+        return `Execution Error: ${result.error}`;
+      }
+      
+      // The 'output' field from JDoodle contains stdout, stderr, etc.
+      // Concatenate them for now, or adjust based on more specific needs.
+      let outputString = result.output || "";
+      if (result.cpuTime) outputString += `\nCPU Time: ${result.cpuTime}s`;
+      if (result.memory) outputString += `\nMemory: ${result.memory}KB`;
+      
+      return outputString || "No output from code execution.";
+
+    } catch (error: any) {
+      console.error("Error calling JDoodle API:", error);
+      return `An unexpected error occurred while trying to execute the code: ${error.message}`;
     }
-    return simulatedOutput;
   }
 );
 
