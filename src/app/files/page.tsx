@@ -25,6 +25,11 @@ const BACK4APP_BASE_URL = "https://parseapi.back4app.com/classes/Videos";
 const APP_ID = process.env.NEXT_PUBLIC_BACK4APP_APP_ID;
 const REST_API_KEY = process.env.NEXT_PUBLIC_BACK4APP_REST_API_KEY;
 
+// Diagnostic logs
+console.log("[VideoHubPage] Attempting to load Back4App credentials from .env");
+console.log("[VideoHubPage] Read NEXT_PUBLIC_BACK4APP_APP_ID:", APP_ID);
+console.log("[VideoHubPage] Read NEXT_PUBLIC_BACK4APP_REST_API_KEY:", REST_API_KEY);
+
 export default function VideoHubPage() {
   const [videos, setVideos] = useState<VideoData[]>([]);
   const [videoUrlInput, setVideoUrlInput] = useState<string>("");
@@ -38,18 +43,21 @@ export default function VideoHubPage() {
   const fetchVideos = useCallback(async () => {
     setIsLoadingVideos(true);
     if (!APP_ID || !REST_API_KEY) {
-      console.error("Back4App credentials are not set in .env");
-      toast({
-        variant: "destructive",
-        title: "Configuration Error",
-        description: "Back4App credentials are not configured. Please contact the administrator.",
-      });
+      console.error("[VideoHubPage] Back4App credentials (APP_ID or REST_API_KEY) are missing or undefined in the component's scope.");
+      // Toast is shown if component is mounted and keys are missing
+      if (isMounted) {
+        toast({
+          variant: "destructive",
+          title: "Configuration Error",
+          description: "Back4App credentials are not configured. Please check console and .env file, then restart the server.",
+          duration: 10000,
+        });
+      }
       setIsLoadingVideos(false);
       return;
     }
 
     try {
-      // Order by creation date, newest first
       const response = await fetch(`${BACK4APP_BASE_URL}?order=-createdAt`, {
         method: 'GET',
         headers: {
@@ -66,11 +74,11 @@ export default function VideoHubPage() {
 
       const data = await response.json();
       const fetchedVideos = data.results.map((item: any) => ({
-        id: item.objectId, // Back4App uses objectId
+        id: item.objectId, 
         name: item.name,
         youtubeUrl: item.youtubeUrl,
         videoId: item.videoId,
-        addedDate: item.createdAt, // Back4App provides createdAt
+        addedDate: item.createdAt, 
       } as VideoData));
       setVideos(fetchedVideos);
     } catch (error: any) {
@@ -83,23 +91,25 @@ export default function VideoHubPage() {
     } finally {
       setIsLoadingVideos(false);
     }
-  }, [toast]);
+  }, [toast, isMounted]); // Added isMounted to dependencies
 
   useEffect(() => {
     setIsMounted(true);
-    if (APP_ID && REST_API_KEY) {
+    // Moved the initial check and fetchVideos call here
+    // to ensure it runs after the component is mounted and console logs for APP_ID/REST_API_KEY have been printed.
+    if (process.env.NEXT_PUBLIC_BACK4APP_APP_ID && process.env.NEXT_PUBLIC_BACK4APP_REST_API_KEY) {
         fetchVideos();
     } else {
-        console.warn("[VideoHubPage] Back4App credentials not found in environment variables. Video Hub will not function correctly.");
+        console.warn("[VideoHubPage] useEffect: Back4App credentials not found in environment variables during initial mount. Video Hub will not function correctly.");
         setIsLoadingVideos(false);
-        // Optionally, show a persistent warning to the user if keys are missing
+        // The error toast will be handled by fetchVideos or the main component render if keys are missing
     }
   }, [fetchVideos]);
 
 
   const handleAddVideo = async () => {
     if (!APP_ID || !REST_API_KEY) {
-      toast({ variant: "destructive", title: "Configuration Error", description: "Back4App credentials missing." });
+      toast({ variant: "destructive", title: "Configuration Error", description: "Back4App credentials missing. Please check .env and restart." });
       return;
     }
     if (!videoUrlInput.trim()) {
@@ -142,8 +152,7 @@ export default function VideoHubPage() {
         throw new Error(errorData.error || `Failed to add video: ${response.statusText}`);
       }
 
-      // const newVideo = await response.json(); // Contains objectId and createdAt
-      await fetchVideos(); // Re-fetch to get the updated list with the new video
+      await fetchVideos(); 
 
       setVideoUrlInput("");
       setVideoNameInput("");
@@ -204,7 +213,7 @@ export default function VideoHubPage() {
     }
   };
 
-  if (!isMounted) { // Keep simple loader for initial mount
+  if (!isMounted) { 
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -212,6 +221,7 @@ export default function VideoHubPage() {
     );
   }
 
+  // Check for credentials after mount and before rendering UI that depends on them
   if (!APP_ID || !REST_API_KEY) {
     return (
        <div className="flex flex-col justify-center items-center h-full text-center p-8">
@@ -221,13 +231,13 @@ export default function VideoHubPage() {
           Back4App API credentials (Application ID or REST API Key) are missing.
         </p>
         <p className="text-muted-foreground mt-1">
-          Please ensure <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">NEXT_PUBLIC_BACK4APP_APP_ID</code> and <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">NEXT_PUBLIC_BACK4APP_REST_API_KEY</code> are set in your <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">.env</code> file.
+          Please ensure <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">NEXT_PUBLIC_BACK4APP_APP_ID</code> and <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">NEXT_PUBLIC_BACK4APP_REST_API_KEY</code> are set in your <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">.env</code> file and that you have restarted the Next.js development server. Check the browser console for diagnostic messages.
         </p>
       </div>
     );
   }
   
-  if (isLoadingVideos && videos.length === 0) { // Show loader only on initial data load
+  if (isLoadingVideos && videos.length === 0) { 
      return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -235,7 +245,6 @@ export default function VideoHubPage() {
       </div>
     );
   }
-
 
   return (
     <div className="space-y-8">
@@ -360,3 +369,6 @@ export default function VideoHubPage() {
     </div>
   );
 }
+
+
+    
