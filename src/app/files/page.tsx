@@ -19,56 +19,66 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { db } from '@/lib/firebase'; // Import Firestore instance
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  deleteDoc, 
-  doc, 
-  query, 
-  orderBy, 
-  serverTimestamp,
-  Timestamp
-} from 'firebase/firestore';
 
-// Firestore collection name
-const VIDEOS_COLLECTION = "videos";
+// Back4App API Details
+const BACK4APP_BASE_URL = "https://parseapi.back4app.com/classes/Videos";
+const APP_ID = process.env.NEXT_PUBLIC_BACK4APP_APP_ID;
+const REST_API_KEY = process.env.NEXT_PUBLIC_BACK4APP_REST_API_KEY;
 
 export default function VideoHubPage() {
   const [videos, setVideos] = useState<VideoData[]>([]);
   const [videoUrlInput, setVideoUrlInput] = useState<string>("");
   const [videoNameInput, setVideoNameInput] = useState<string>("");
-  const [isLoadingVideos, setIsLoadingVideos] = useState<boolean>(true); // For initial load
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // For add/delete operations
+  const [isLoadingVideos, setIsLoadingVideos] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isMounted, setIsMounted] = useState(false);
   const [videoToDelete, setVideoToDelete] = useState<VideoData | null>(null);
   const { toast } = useToast();
 
   const fetchVideos = useCallback(async () => {
     setIsLoadingVideos(true);
-    try {
-      const q = query(collection(db, VIDEOS_COLLECTION), orderBy("addedDate", "desc"));
-      const querySnapshot = await getDocs(q);
-      const fetchedVideos = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        // Convert Firestore Timestamp to ISO string
-        const addedDateTimestamp = data.addedDate as Timestamp;
-        return {
-          id: doc.id,
-          name: data.name,
-          youtubeUrl: data.youtubeUrl,
-          videoId: data.videoId,
-          addedDate: addedDateTimestamp?.toDate().toISOString() || new Date().toISOString(),
-        } as VideoData;
+    if (!APP_ID || !REST_API_KEY) {
+      console.error("Back4App credentials are not set in .env");
+      toast({
+        variant: "destructive",
+        title: "Configuration Error",
+        description: "Back4App credentials are not configured. Please contact the administrator.",
       });
+      setIsLoadingVideos(false);
+      return;
+    }
+
+    try {
+      // Order by creation date, newest first
+      const response = await fetch(`${BACK4APP_BASE_URL}?order=-createdAt`, {
+        method: 'GET',
+        headers: {
+          'X-Parse-Application-Id': APP_ID,
+          'X-Parse-REST-API-Key': REST_API_KEY,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Error fetching videos from Back4App:", errorData);
+        throw new Error(errorData.error || `Failed to fetch videos: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const fetchedVideos = data.results.map((item: any) => ({
+        id: item.objectId, // Back4App uses objectId
+        name: item.name,
+        youtubeUrl: item.youtubeUrl,
+        videoId: item.videoId,
+        addedDate: item.createdAt, // Back4App provides createdAt
+      } as VideoData));
       setVideos(fetchedVideos);
-    } catch (error) {
-      console.error("Error fetching videos from Firestore:", error);
+    } catch (error: any) {
+      console.error("Error fetching videos:", error);
       toast({
         variant: "destructive",
         title: "Error loading videos",
-        description: "Could not load videos from the database. Please check console for details.",
+        description: error.message || "Could not load videos from the database.",
       });
     } finally {
       setIsLoadingVideos(false);
@@ -77,70 +87,76 @@ export default function VideoHubPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    fetchVideos();
+    if (APP_ID && REST_API_KEY) {
+        fetchVideos();
+    } else {
+        console.warn("[VideoHubPage] Back4App credentials not found in environment variables. Video Hub will not function correctly.");
+        setIsLoadingVideos(false);
+        // Optionally, show a persistent warning to the user if keys are missing
+    }
   }, [fetchVideos]);
 
 
   const handleAddVideo = async () => {
-    console.log("[VideoHubPage] handleAddVideo called. URL:", videoUrlInput, "Name:", videoNameInput);
-
+    if (!APP_ID || !REST_API_KEY) {
+      toast({ variant: "destructive", title: "Configuration Error", description: "Back4App credentials missing." });
+      return;
+    }
     if (!videoUrlInput.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "YouTube URL cannot be empty.",
-      });
+      toast({ variant: "destructive", title: "Validation Error", description: "YouTube URL cannot be empty." });
       return;
     }
 
     const videoId = extractYouTubeVideoId(videoUrlInput);
-    console.log("[VideoHubPage] Extracted videoId:", videoId);
-
     if (!videoId) {
-      toast({
-        variant: "destructive",
-        title: "Invalid URL",
-        description: "Could not extract a valid YouTube Video ID from the URL. Please check the link and try again.",
-      });
+      toast({ variant: "destructive", title: "Invalid URL", description: "Could not extract a valid YouTube Video ID." });
       return;
     }
     
     if (videos.some(v => v.videoId === videoId)) {
-      toast({
-        variant: "destructive",
-        title: "Duplicate Video",
-        description: "This video has already been added to the hub.",
-      });
+      toast({ variant: "destructive", title: "Duplicate Video", description: "This video has already been added." });
       return;
     }
 
     setIsSubmitting(true);
+    const videoPayload = {
+      name: videoNameInput.trim() || `Video ID: ${videoId}`,
+      youtubeUrl: videoUrlInput,
+      videoId: videoId,
+    };
+
     try {
-      const newVideoData = {
-        name: videoNameInput.trim() || `Video by ID: ${videoId}`,
-        youtubeUrl: videoUrlInput,
-        videoId: videoId,
-        addedDate: serverTimestamp(), // Use Firestore server timestamp
-      };
-      const docRef = await addDoc(collection(db, VIDEOS_COLLECTION), newVideoData);
-      console.log("[VideoHubPage] New video added to Firestore with ID:", docRef.id);
-      
-      // Optimistically update UI or re-fetch
-      // For simplicity, re-fetching after add.
-      await fetchVideos(); 
+      const response = await fetch(BACK4APP_BASE_URL, {
+        method: 'POST',
+        headers: {
+          'X-Parse-Application-Id': APP_ID,
+          'X-Parse-REST-API-Key': REST_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(videoPayload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Error adding video to Back4App:", errorData);
+        throw new Error(errorData.error || `Failed to add video: ${response.statusText}`);
+      }
+
+      // const newVideo = await response.json(); // Contains objectId and createdAt
+      await fetchVideos(); // Re-fetch to get the updated list with the new video
 
       setVideoUrlInput("");
       setVideoNameInput("");
       toast({
         title: "Video Added",
-        description: `"${newVideoData.name}" has been added to your Video Hub.`,
+        description: `"${videoPayload.name}" has been added to your Video Hub.`,
       });
-    } catch (error) {
-      console.error("Error adding video to Firestore:", error);
+    } catch (error: any) {
+      console.error("Error adding video:", error);
       toast({
         variant: "destructive",
         title: "Error Adding Video",
-        description: "Could not add video to the database. Please try again.",
+        description: error.message || "Could not add video to the database.",
       });
     } finally {
       setIsSubmitting(false);
@@ -152,22 +168,35 @@ export default function VideoHubPage() {
   };
 
   const confirmDelete = async () => {
-    if (videoToDelete) {
+    if (videoToDelete && APP_ID && REST_API_KEY) {
       setIsSubmitting(true);
       try {
-        await deleteDoc(doc(db, VIDEOS_COLLECTION, videoToDelete.id));
+        const response = await fetch(`${BACK4APP_BASE_URL}/${videoToDelete.id}`, {
+          method: 'DELETE',
+          headers: {
+            'X-Parse-Application-Id': APP_ID,
+            'X-Parse-REST-API-Key': REST_API_KEY,
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Error deleting video from Back4App:", errorData);
+          throw new Error(errorData.error || `Failed to delete video: ${response.statusText}`);
+        }
+        
         setVideos(prevVideos => prevVideos.filter(v => v.id !== videoToDelete.id));
         toast({
           title: "Video Removed",
           description: `"${videoToDelete.name}" has been removed.`,
         });
         setVideoToDelete(null);
-      } catch (error) {
-        console.error("Error deleting video from Firestore:", error);
+      } catch (error: any) {
+        console.error("Error deleting video:", error);
         toast({
           variant: "destructive",
           title: "Error Deleting Video",
-          description: "Could not delete video. Please try again.",
+          description: error.message || "Could not delete video.",
         });
       } finally {
         setIsSubmitting(false);
@@ -175,20 +204,44 @@ export default function VideoHubPage() {
     }
   };
 
-  if (!isMounted || isLoadingVideos) {
+  if (!isMounted) { // Keep simple loader for initial mount
     return (
       <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!APP_ID || !REST_API_KEY) {
+    return (
+       <div className="flex flex-col justify-center items-center h-full text-center p-8">
+        <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
+        <h2 className="text-2xl font-semibold mb-2">Configuration Error</h2>
+        <p className="text-muted-foreground">
+          Back4App API credentials (Application ID or REST API Key) are missing.
+        </p>
+        <p className="text-muted-foreground mt-1">
+          Please ensure <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">NEXT_PUBLIC_BACK4APP_APP_ID</code> and <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">NEXT_PUBLIC_BACK4APP_REST_API_KEY</code> are set in your <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">.env</code> file.
+        </p>
+      </div>
+    );
+  }
+  
+  if (isLoadingVideos && videos.length === 0) { // Show loader only on initial data load
+     return (
+      <div className="flex justify-center items-center h-full">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="ml-4 text-lg">Loading Videos...</p>
       </div>
     );
   }
 
+
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
         <Youtube className="w-8 h-8 text-primary" />
-        Video Hub
+        Video Hub (Back4App)
       </h1>
       
       <Card>
@@ -216,7 +269,7 @@ export default function VideoHubPage() {
             onChange={(e) => setVideoNameInput(e.target.value)}
             disabled={isSubmitting}
           />
-          <Button onClick={handleAddVideo} className="w-full sm:w-auto" disabled={isSubmitting}>
+          <Button onClick={handleAddVideo} className="w-full sm:w-auto" disabled={isSubmitting || isLoadingVideos}>
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Youtube className="mr-2 h-4 w-4" />}
             Add Video
           </Button>
@@ -226,9 +279,15 @@ export default function VideoHubPage() {
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">My Videos</CardTitle>
+           {isLoadingVideos && videos.length > 0 && (
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Refreshing video list...
+            </div>
+          )}
         </CardHeader>
         <CardContent>
-          {videos.length === 0 ? (
+          {videos.length === 0 && !isLoadingVideos ? (
              <div className="text-center py-12 text-muted-foreground">
                 <Film className="w-16 h-16 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-semibold">No Videos Yet</p>
@@ -265,7 +324,7 @@ export default function VideoHubPage() {
                       onClick={() => handleDeleteVideo(video)} 
                       className="w-full"
                       aria-label={`Delete ${video.name}`}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isLoadingVideos}
                     >
                       {isSubmitting && videoToDelete?.id === video.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                        Delete
