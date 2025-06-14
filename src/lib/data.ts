@@ -1,29 +1,45 @@
 
+// Represents a Video item, aligning with a potential Data Connect schema
 export interface VideoData {
-  id: string;
+  id: string; // Typically a unique ID from the database
   name: string;
   youtubeUrl: string;
   videoId: string;
-  addedDate: string;
+  createdAt?: string; // Or Date, depending on transformation. ISO string is common.
+  updatedAt?: string; // Or Date
 }
 
-// The mockExercises are kept as they might be used by other parts of the application (e.g., exercises page)
+// Represents an HTML Snippet item, aligning with Data Connect schema
+export interface HTMLSnippetData {
+  id: string;
+  title: string;
+  htmlContent: string; // The actual HTML code
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Represents an Exercise item, aligning with Data Connect schema
 export interface ExerciseData {
   id: string;
   title: string;
-  description: string;
-  difficulty?: 'Easy' | 'Medium' | 'Hard';
-  files?: string[]; // Names of associated files
-  tags?: string[];
+  description?: string; // General description of the exercise
+  htmlContent?: string; // Could be used for instructions or problem statement in HTML
+  // starterCode?: string; // If there's a separate field for starter Java code
+  difficulty?: 'Easy' | 'Medium' | 'Hard'; // This might be part of your schema or client-side logic
+  tags?: string[]; // This might be part of your schema or client-side logic
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export const mockExercises: ExerciseData[] = [
+
+// The mockExercises are kept as they might be used by other parts of the application (e.g., exercises page)
+// if not yet migrated to Data Connect
+export const mockExercises_localStorage: ExerciseData[] = [
   {
     id: '1',
     title: 'Java Basics: Hello World',
     description: 'Write a simple Java program that prints "Hello, World!" to the console. This will help you get familiar with the basic syntax and running a Java program.',
     difficulty: 'Easy',
-    files: ['HelloWorld.java'],
     tags: ['Java', 'Basics', 'Console Output'],
   },
   {
@@ -31,7 +47,6 @@ export const mockExercises: ExerciseData[] = [
     title: 'Variables and Data Types',
     description: 'Declare variables of different data types (int, double, String, boolean) and print their values. Understand how data is stored and manipulated.',
     difficulty: 'Easy',
-    files: ['DataTypesDemo.java'],
     tags: ['Java', 'Variables', 'Data Types'],
   },
   {
@@ -46,7 +61,6 @@ export const mockExercises: ExerciseData[] = [
     title: 'Loops: Factorial Calculator',
     description: 'Create a Java program that calculates the factorial of a given non-negative integer using a loop (for or while).',
     difficulty: 'Medium',
-    files: ['Factorial.java', 'TestFactorial.java'],
     tags: ['Java', 'Loops', 'Math'],
   },
   {

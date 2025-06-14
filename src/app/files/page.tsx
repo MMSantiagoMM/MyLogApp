@@ -19,80 +19,59 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-
-// Back4App API Details
-const BACK4APP_VIDEOS_CLASS_URL = "https://parseapi.back4app.com/classes/Videos"; // Specific to Videos class
-
-// These will be populated from process.env on the client side after build
-const CLIENT_APP_ID = process.env.NEXT_PUBLIC_BACK4APP_APP_ID;
-const CLIENT_REST_API_KEY = process.env.NEXT_PUBLIC_BACK4APP_REST_API_KEY;
-
-// Diagnostic logs - these will run when the module is loaded in the browser
-console.log("[VideoHubPage] Static: NEXT_PUBLIC_BACK4APP_APP_ID:", CLIENT_APP_ID);
-console.log("[VideoHubPage] Static: NEXT_PUBLIC_BACK4APP_REST_API_KEY:", CLIENT_REST_API_KEY);
+import { executeGraphQLQuery, GET_VIDEOS_QUERY } from '@/lib/dataConnect';
 
 export default function VideoHubPage() {
   const [videos, setVideos] = useState<VideoData[]>([]);
   const [videoUrlInput, setVideoUrlInput] = useState<string>("");
   const [videoNameInput, setVideoNameInput] = useState<string>("");
   const [isLoadingVideos, setIsLoadingVideos] = useState<boolean>(true);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // Kept for potential future mutation UI
   const [isMounted, setIsMounted] = useState(false);
-  const [videoToDelete, setVideoToDelete] = useState<VideoData | null>(null);
+  const [videoToDelete, setVideoToDelete] = useState<VideoData | null>(null); // Kept for potential future mutation UI
   const { toast } = useToast();
-  const [credentialsLoaded, setCredentialsLoaded] = useState(false);
+  const [dataConnectConfigured, setDataConnectConfigured] = useState(false);
 
   const fetchVideos = useCallback(async () => {
-    // Ensure we use the client-side resolved env vars
-    const APP_ID = process.env.NEXT_PUBLIC_BACK4APP_APP_ID;
-    const REST_API_KEY = process.env.NEXT_PUBLIC_BACK4APP_REST_API_KEY;
-
-    if (!APP_ID || !REST_API_KEY) {
-      console.error("[VideoHubPage] fetchVideos: Back4App credentials missing.");
+    const endpoint = process.env.NEXT_PUBLIC_DATA_CONNECT_ENDPOINT;
+    if (!endpoint || endpoint.includes("YOUR_CONNECTOR_ID")) {
+      console.error("[VideoHubPage] fetchVideos: Firebase Data Connect endpoint not configured.");
       toast({
         variant: "destructive",
         title: "Configuration Error",
-        description: "Back4App credentials not configured. Please check .env and restart the server.",
+        description: "Firebase Data Connect endpoint not configured. Please check .env and restart the server.",
         duration: 10000,
       });
       setIsLoadingVideos(false);
-      setCredentialsLoaded(false);
+      setDataConnectConfigured(false);
       return;
     }
-    setCredentialsLoaded(true);
+    setDataConnectConfigured(true);
     setIsLoadingVideos(true);
 
     try {
-      const response = await fetch(`${BACK4APP_VIDEOS_CLASS_URL}?order=-createdAt`, {
-        method: 'GET',
-        headers: {
-          'X-Parse-Application-Id': APP_ID,
-          'X-Parse-REST-API-Key': REST_API_KEY,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Error fetching videos from Back4App:", errorData);
-        throw new Error(errorData.error || `Failed to fetch videos: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const fetchedVideos = data.results.map((item: any) => ({
-        id: item.objectId,
-        name: item.name,
-        youtubeUrl: item.youtubeUrl,
-        videoId: item.videoId,
-        addedDate: item.createdAt,
-      } as VideoData));
+      const response = await executeGraphQLQuery<{ videos: VideoData[] }>(GET_VIDEOS_QUERY);
+      // Assuming the 'videos' field in your GraphQL response is an array of VideoData compatible objects.
+      // You might need to transform the data if your schema names fields differently (e.g., map `createdAt` to `addedDate`).
+      const fetchedVideos = response?.videos?.map(video => ({
+        ...video,
+        // Ensure 'id' exists, it's crucial for React keys and future operations
+        id: video.id || String(Date.now() + Math.random()), // Fallback if id is missing, but schema should guarantee it
+        addedDate: video.createdAt || new Date().toISOString(), // Use createdAt or a similar field
+      })) || [];
+      
+      // Sort by date, assuming addedDate (mapped from createdAt) is a valid ISO string
+      fetchedVideos.sort((a, b) => new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime());
       setVideos(fetchedVideos);
+
     } catch (error: any) {
-      console.error("Error fetching videos:", error);
+      console.error("Error fetching videos from Data Connect:", error);
       toast({
         variant: "destructive",
         title: "Error loading videos",
-        description: error.message || "Could not load videos from the database.",
+        description: error.message || "Could not load videos from the Data Connect service.",
       });
+       setVideos([]); // Clear videos on error
     } finally {
       setIsLoadingVideos(false);
     }
@@ -100,137 +79,52 @@ export default function VideoHubPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    // Log credentials as accessed by this effect
-    const currentAppId = process.env.NEXT_PUBLIC_BACK4APP_APP_ID;
-    const currentRestApiKey = process.env.NEXT_PUBLIC_BACK4APP_REST_API_KEY;
-    console.log("[VideoHubPage] useEffect: Initial NEXT_PUBLIC_BACK4APP_APP_ID:", currentAppId);
-    console.log("[VideoHubPage] useEffect: Initial NEXT_PUBLIC_BACK4APP_REST_API_KEY:", currentRestApiKey);
-
-    if (currentAppId && currentRestApiKey) {
-      setCredentialsLoaded(true);
+    const endpoint = process.env.NEXT_PUBLIC_DATA_CONNECT_ENDPOINT;
+    if (endpoint && !endpoint.includes("YOUR_CONNECTOR_ID")) {
+      setDataConnectConfigured(true);
       fetchVideos();
     } else {
-      console.warn("[VideoHubPage] useEffect: Back4App credentials not found in environment variables during initial mount. Video Hub will not function correctly.");
       setIsLoadingVideos(false);
-      setCredentialsLoaded(false);
-      // Toast for missing credentials will be shown by fetchVideos or the main render block
+      setDataConnectConfigured(false);
     }
-  }, [fetchVideos]); // fetchVideos has `toast` as a dependency.
+  }, [fetchVideos]);
 
 
-  const handleAddVideo = async () => {
-    const APP_ID = process.env.NEXT_PUBLIC_BACK4APP_APP_ID;
-    const REST_API_KEY = process.env.NEXT_PUBLIC_BACK4APP_REST_API_KEY;
-
-    if (!APP_ID || !REST_API_KEY) {
-      toast({ variant: "destructive", title: "Configuration Error", description: "Back4App credentials missing. Please check .env and restart server." });
-      return;
-    }
-    if (!videoUrlInput.trim()) {
-      toast({ variant: "destructive", title: "Validation Error", description: "YouTube URL cannot be empty." });
-      return;
-    }
-
-    const videoId = extractYouTubeVideoId(videoUrlInput);
-    if (!videoId) {
-      toast({ variant: "destructive", title: "Invalid URL", description: "Could not extract a valid YouTube Video ID." });
-      return;
-    }
-
-    if (videos.some(v => v.videoId === videoId)) {
-      toast({ variant: "destructive", title: "Duplicate Video", description: "This video has already been added." });
-      return;
-    }
-
-    setIsSubmitting(true);
-    const videoPayload = {
-      name: videoNameInput.trim() || `Video: ${videoId}`, // Default name if not provided
-      youtubeUrl: videoUrlInput,
-      videoId: videoId,
-    };
-
-    try {
-      const response = await fetch(BACK4APP_VIDEOS_CLASS_URL, {
-        method: 'POST',
-        headers: {
-          'X-Parse-Application-Id': APP_ID,
-          'X-Parse-REST-API-Key': REST_API_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(videoPayload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Error adding video to Back4App:", errorData);
-        throw new Error(errorData.error || `Failed to add video: ${response.statusText}`);
-      }
-
-      // Instead of just calling fetchVideos(), optimistically update or re-fetch
-      // For simplicity, re-fetching:
-      await fetchVideos();
-
-      setVideoUrlInput("");
-      setVideoNameInput("");
-      toast({
-        title: "Video Added",
-        description: `"${videoPayload.name}" has been added to your Video Hub.`,
-      });
-    } catch (error: any) {
-      console.error("Error adding video:", error);
-      toast({
-        variant: "destructive",
-        title: "Error Adding Video",
-        description: error.message || "Could not add video to the database.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleAddVideoStub = async () => {
+    toast({
+      title: "Feature Coming Soon",
+      description: "Adding videos via Data Connect is not yet implemented in this example.",
+    });
+    // This is where you would implement a GraphQL mutation to add a video.
+    // For now, it's a placeholder.
+    // const videoId = extractYouTubeVideoId(videoUrlInput);
+    // if (!videoId) { /* ... */ }
+    // const videoPayload = { name: videoNameInput, youtubeUrl: videoUrlInput, videoId };
+    // await executeGraphQLQuery(ADD_VIDEO_MUTATION, { input: videoPayload });
+    // fetchVideos(); // Re-fetch after adding
   };
 
-  const handleDeleteVideo = (video: VideoData) => {
-    setVideoToDelete(video);
+  const handleDeleteVideoStub = (video: VideoData) => {
+     toast({
+      title: "Feature Coming Soon",
+      description: "Deleting videos via Data Connect is not yet implemented in this example.",
+    });
+    // setVideoToDelete(video); // This would open a confirmation dialog
   };
 
-  const confirmDelete = async () => {
-    const APP_ID = process.env.NEXT_PUBLIC_BACK4APP_APP_ID;
-    const REST_API_KEY = process.env.NEXT_PUBLIC_BACK4APP_REST_API_KEY;
-
-    if (videoToDelete && APP_ID && REST_API_KEY) {
-      setIsSubmitting(true);
-      try {
-        const response = await fetch(`${BACK4APP_VIDEOS_CLASS_URL}/${videoToDelete.id}`, {
-          method: 'DELETE',
-          headers: {
-            'X-Parse-Application-Id': APP_ID,
-            'X-Parse-REST-API-Key': REST_API_KEY,
-          },
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Error deleting video from Back4App:", errorData);
-          throw new Error(errorData.error || `Failed to delete video: ${response.statusText}`);
-        }
-
-        setVideos(prevVideos => prevVideos.filter(v => v.id !== videoToDelete.id));
-        toast({
-          title: "Video Removed",
-          description: `"${videoToDelete.name}" has been removed.`,
-        });
-        setVideoToDelete(null);
-      } catch (error: any) {
-        console.error("Error deleting video:", error);
-        toast({
-          variant: "destructive",
-          title: "Error Deleting Video",
-          description: error.message || "Could not delete video.",
-        });
-      } finally {
-        setIsSubmitting(false);
-      }
-    }
+  const confirmDeleteStub = async () => {
+     toast({
+      title: "Feature Coming Soon",
+      description: "Deleting videos via Data Connect is not yet implemented in this example.",
+    });
+    // This is where you would implement a GraphQL mutation to delete a video.
+    // if (videoToDelete) {
+    //   await executeGraphQLQuery(DELETE_VIDEO_MUTATION, { id: videoToDelete.id });
+    //   fetchVideos(); // Re-fetch after deleting
+    //   setVideoToDelete(null);
+    // }
   };
+
 
   if (!isMounted) {
     return (
@@ -241,33 +135,20 @@ export default function VideoHubPage() {
     );
   }
 
-  if (isMounted && !credentialsLoaded && isLoadingVideos) {
-     // This state happens briefly if credentials are not found by useEffect initially
-     return (
-      <div className="flex justify-center items-center h-full">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-4 text-lg">Checking Configuration...</p>
-      </div>
-    );
-  }
-  
-  if (isMounted && !credentialsLoaded && !isLoadingVideos) {
-    // Credentials were not found after initial check
+  if (isMounted && !dataConnectConfigured && !isLoadingVideos) {
     return (
        <div className="flex flex-col justify-center items-center h-full text-center p-8">
         <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold mb-2">Configuration Error</h2>
         <p className="text-muted-foreground">
-          Back4App API credentials (Application ID or REST API Key) are missing or could not be loaded.
+          Firebase Data Connect endpoint (NEXT_PUBLIC_DATA_CONNECT_ENDPOINT) is missing, invalid, or still contains "YOUR_CONNECTOR_ID".
         </p>
         <p className="text-muted-foreground mt-1">
-          Please ensure <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">NEXT_PUBLIC_BACK4APP_APP_ID</code> and <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">NEXT_PUBLIC_BACK4APP_REST_API_KEY</code> are correctly set in your <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">.env</code> file.
+          Please ensure it's correctly set in your <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">.env</code> file
+          (e.g., <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">https://your-project-id.dataconnect.firebasehosting.com/api/your-actual-connector-id</code>).
         </p>
         <p className="text-muted-foreground mt-2 font-semibold">
           You MUST restart the Next.js development server after modifying the <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">.env</code> file.
-        </p>
-        <p className="text-muted-foreground mt-1">
-          Check the browser console for diagnostic messages (e.g., "Static: NEXT_PUBLIC_BACK4APP_APP_ID: undefined").
         </p>
       </div>
     );
@@ -277,17 +158,17 @@ export default function VideoHubPage() {
     <div className="space-y-8">
       <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
         <Youtube className="w-8 h-8 text-primary" />
-        Video Hub (Back4App)
+        Video Hub (Data Connect)
       </h1>
 
       <Card>
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <LinkIcon className="w-6 h-6" />
-            Add YouTube Video
+            Add YouTube Video (Coming Soon)
           </CardTitle>
           <CardDescription>
-            Paste a YouTube video link to add it to your collection.
+            Functionality to add new videos via Data Connect will be implemented here.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -296,17 +177,17 @@ export default function VideoHubPage() {
             placeholder="YouTube Video URL (e.g., https://www.youtube.com/watch?v=...)"
             value={videoUrlInput}
             onChange={(e) => setVideoUrlInput(e.target.value)}
-            disabled={isSubmitting || isLoadingVideos && videos.length > 0}
+            disabled // Disabled as add functionality is not implemented
           />
           <Input
             type="text"
             placeholder="Optional: Custom Video Name"
             value={videoNameInput}
             onChange={(e) => setVideoNameInput(e.target.value)}
-            disabled={isSubmitting || isLoadingVideos && videos.length > 0}
+            disabled // Disabled as add functionality is not implemented
           />
-          <Button onClick={handleAddVideo} className="w-full sm:w-auto" disabled={isSubmitting || (isLoadingVideos && videos.length > 0) }>
-            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Youtube className="mr-2 h-4 w-4" />}
+          <Button onClick={handleAddVideoStub} className="w-full sm:w-auto" disabled>
+            <Youtube className="mr-2 h-4 w-4" />
             Add Video
           </Button>
         </CardContent>
@@ -315,25 +196,19 @@ export default function VideoHubPage() {
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">My Videos</CardTitle>
-           {isLoadingVideos && videos.length > 0 && ( // Show refreshing only if there are already videos
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Refreshing video list...
-            </div>
-          )}
-           {isLoadingVideos && videos.length === 0 && ( // Initial loading spinner
+           {isLoadingVideos && (
             <div className="flex items-center text-sm text-muted-foreground py-10 justify-center">
               <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-              Loading videos from Back4App...
+              Loading videos from Data Connect...
             </div>
           )}
         </CardHeader>
         <CardContent>
-          {!isLoadingVideos && videos.length === 0 && credentialsLoaded && ( // No videos and not loading, and creds were loaded
+          {!isLoadingVideos && videos.length === 0 && dataConnectConfigured && (
              <div className="text-center py-12 text-muted-foreground">
                 <Film className="w-16 h-16 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-semibold">No Videos Yet</p>
-                <p>Add YouTube video links using the form above to build your collection.</p>
+                <p>Once add functionality is implemented, videos will appear here.</p>
             </div>
           )}
           {videos.length > 0 && (
@@ -345,7 +220,7 @@ export default function VideoHubPage() {
                       {video.name}
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Added: {new Date(video.addedDate).toLocaleDateString()}
+                      Added: {video.addedDate ? new Date(video.addedDate).toLocaleDateString() : 'N/A'}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex-grow p-0 aspect-video">
@@ -364,13 +239,13 @@ export default function VideoHubPage() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleDeleteVideo(video)}
+                      onClick={() => handleDeleteVideoStub(video)}
                       className="w-full"
                       aria-label={`Delete ${video.name}`}
-                      disabled={isSubmitting}
+                      disabled // Disabled as delete functionality is not implemented
                     >
-                      {(isSubmitting && videoToDelete?.id === video.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                       Delete
+                      <Trash2 className="mr-2 h-4 w-4" />
+                       Delete (Coming Soon)
                     </Button>
                   </CardFooter>
                 </Card>
@@ -380,7 +255,8 @@ export default function VideoHubPage() {
         </CardContent>
       </Card>
 
-      {videoToDelete && (
+      {/* Delete confirmation dialog - kept for future use with mutations */}
+      {/* {videoToDelete && (
         <AlertDialog open={!!videoToDelete} onOpenChange={(open) => !open && setVideoToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -392,14 +268,14 @@ export default function VideoHubPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setVideoToDelete(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting}>
+              <AlertDialogAction onClick={confirmDeleteStub} disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      )}
+      )} */}
     </div>
   );
 }
