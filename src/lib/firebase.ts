@@ -16,12 +16,23 @@ const firebaseConfig = {
 // Initialize Firebase
 let app;
 if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
+  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    console.error("Firebase configuration is missing. Please check your .env file and ensure NEXT_PUBLIC_FIREBASE_ variables are set.");
+  }
 } else {
   app = getApp();
 }
 
-const db = getFirestore(app);
+let db;
+if (app) {
+  db = getFirestore(app);
+} else {
+  // Fallback or error handling for db if app didn't initialize
+  console.error("Firebase app failed to initialize. Firestore will not be available.");
+}
+
 // const auth = getAuth(app); // If using auth
 // const storage = getStorage(app); // If using storage
 
