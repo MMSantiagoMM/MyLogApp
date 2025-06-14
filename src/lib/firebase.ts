@@ -17,12 +17,18 @@ const firebaseConfig = {
 let app;
 if (!getApps().length) {
   if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+    console.log("[firebase.ts] Initializing Firebase app with projectId:", firebaseConfig.projectId);
     app = initializeApp(firebaseConfig);
   } else {
-    console.error("Firebase configuration is missing. Please check your .env file and ensure NEXT_PUBLIC_FIREBASE_ variables are set.");
+    console.error(
+      "[firebase.ts] CRITICAL ERROR: Firebase configuration is missing or incomplete. " +
+      "Please check your .env file and ensure NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID (and others) are correctly set. " +
+      "You MUST restart your Next.js development server after modifying the .env file."
+    );
   }
 } else {
   app = getApp();
+  console.log("[firebase.ts] Using existing Firebase app for projectId:", getApp().options.projectId);
 }
 
 let db;
@@ -30,7 +36,10 @@ if (app) {
   db = getFirestore(app);
 } else {
   // Fallback or error handling for db if app didn't initialize
-  console.error("Firebase app failed to initialize. Firestore will not be available.");
+  console.error(
+    "[firebase.ts] Firebase app failed to initialize. Firestore will not be available. " +
+    "Review previous error messages for missing Firebase configuration."
+  );
 }
 
 // const auth = getAuth(app); // If using auth

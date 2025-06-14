@@ -1,15 +1,22 @@
+
 // src/lib/dataConnect.ts
-// 'use server'; // Removed: This directive was causing issues with exporting string constants.
-                 // The async functions can still be used by server components/actions.
 
 const DATA_CONNECT_ENDPOINT = process.env.NEXT_PUBLIC_DATA_CONNECT_ENDPOINT;
 
-if (!DATA_CONNECT_ENDPOINT || DATA_CONNECT_ENDPOINT.includes("YOUR_CONNECTOR_ID")) {
-  console.warn(
-    `Firebase Data Connect endpoint is not configured or uses a placeholder. 
-     Please set NEXT_PUBLIC_DATA_CONNECT_ENDPOINT in your .env file with your actual connector ID.
-     Current value: ${DATA_CONNECT_ENDPOINT}`
+if (!DATA_CONNECT_ENDPOINT) {
+  console.error(
+    "[dataConnect.ts] CRITICAL ERROR: Firebase Data Connect endpoint (NEXT_PUBLIC_DATA_CONNECT_ENDPOINT) is NOT SET. " +
+    "Please set this variable in your .env file (e.g., https://your-project-id.dataconnect.firebasehosting.com/api/your-connector-id). " +
+    "You MUST restart your Next.js development server after modifying the .env file."
   );
+} else if (DATA_CONNECT_ENDPOINT.includes("YOUR_CONNECTOR_ID") || DATA_CONNECT_ENDPOINT.includes("your-connector-id")) {
+  console.warn(
+    "[dataConnect.ts] WARNING: Firebase Data Connect endpoint (NEXT_PUBLIC_DATA_CONNECT_ENDPOINT) appears to use a placeholder 'YOUR_CONNECTOR_ID'. " +
+    `Current value: "${DATA_CONNECT_ENDPOINT}". Please replace it with your actual connector ID. ` +
+    "You MUST restart your Next.js development server after modifying the .env file."
+  );
+} else {
+  console.log("[dataConnect.ts] Firebase Data Connect endpoint configured:", DATA_CONNECT_ENDPOINT);
 }
 
 interface GraphQLResponse<T> {
@@ -21,8 +28,10 @@ export async function executeGraphQLQuery<T = any>(
   query: string,
   variables?: Record<string, any>
 ): Promise<GraphQLResponse<T>['data']> {
-  if (!DATA_CONNECT_ENDPOINT || DATA_CONNECT_ENDPOINT.includes("YOUR_CONNECTOR_ID")) {
-    throw new Error("Firebase Data Connect endpoint is not properly configured. See server logs for details.");
+  if (!DATA_CONNECT_ENDPOINT || DATA_CONNECT_ENDPOINT.includes("YOUR_CONNECTOR_ID") || DATA_CONNECT_ENDPOINT.includes("your-connector-id")) {
+    const errorMessage = "[dataConnect.ts] executeGraphQLQuery: Firebase Data Connect endpoint is not properly configured. See server logs/console for details. Cannot make GraphQL requests.";
+    console.error(errorMessage);
+    throw new Error(errorMessage);
   }
 
   try {
@@ -42,20 +51,20 @@ export async function executeGraphQLQuery<T = any>(
     const result = await response.json() as GraphQLResponse<T>;
 
     if (!response.ok) {
-      console.error('GraphQL query failed:', result.errors || response.statusText);
+      console.error('[dataConnect.ts] GraphQL query failed:', result.errors || response.statusText, 'Status:', response.status);
       const errorMessages = result.errors?.map(e => e.message).join(', ') || response.statusText;
-      throw new Error(`GraphQL request failed: ${errorMessages}`);
+      throw new Error(`[dataConnect.ts] GraphQL request failed: ${errorMessages}`);
     }
 
     if (result.errors) {
-      console.error('GraphQL errors:', result.errors);
+      console.error('[dataConnect.ts] GraphQL errors:', result.errors);
       const errorMessages = result.errors.map(e => e.message).join(', ');
-      throw new Error(`GraphQL query returned errors: ${errorMessages}`);
+      throw new Error(`[dataConnect.ts] GraphQL query returned errors: ${errorMessages}`);
     }
 
     return result.data;
   } catch (error) {
-    console.error('Error executing GraphQL query:', error);
+    console.error('[dataConnect.ts] Error executing GraphQL query:', error);
     throw error; // Re-throw to be caught by the caller
   }
 }
@@ -101,29 +110,3 @@ export const GET_EXERCISE_QUERY = `
     }
   }
 `;
-
-// Example of how you might call these (conceptual, for use in components):
-/*
-async function fetchVideosFromDataConnect() {
-  try {
-    const response = await executeGraphQLQuery<{ videos: VideoData[] }>(GET_VIDEOS_QUERY);
-    return response?.videos || [];
-  } catch (error) {
-    console.error("Failed to fetch videos:", error);
-    return [];
-  }
-}
-
-async function fetchHtmlSnippetCode(snippetId: string) {
-  try {
-    const response = await executeGraphQLQuery<{ htmlSnippet: HTMLSnippetData }>(
-      GET_HTML_SNIPPET_QUERY,
-      { id: snippetId }
-    );
-    return response?.htmlSnippet;
-  } catch (error) {
-    console.error(\`Failed to fetch HTML snippet ${snippetId}:\`, error);
-    return null;
-  }
-}
-*/
