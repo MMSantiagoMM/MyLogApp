@@ -1,5 +1,6 @@
 // src/lib/dataConnect.ts
-'use server'; // Can be used in Server Components/Actions if needed, but queries are often client-side too
+// 'use server'; // Removed: This directive was causing issues with exporting string constants.
+                 // The async functions can still be used by server components/actions.
 
 const DATA_CONNECT_ENDPOINT = process.env.NEXT_PUBLIC_DATA_CONNECT_ENDPOINT;
 
@@ -121,7 +122,7 @@ async function fetchHtmlSnippetCode(snippetId: string) {
     );
     return response?.htmlSnippet;
   } catch (error) {
-    console.error(`Failed to fetch HTML snippet ${snippetId}:`, error);
+    console.error(\`Failed to fetch HTML snippet ${snippetId}:\`, error);
     return null;
   }
 }
