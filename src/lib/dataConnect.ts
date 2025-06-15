@@ -6,7 +6,7 @@ const DATA_CONNECT_ENDPOINT = process.env.NEXT_PUBLIC_DATA_CONNECT_ENDPOINT;
 if (!DATA_CONNECT_ENDPOINT) {
   console.error(
     "[dataConnect.ts] CRITICAL ERROR: Firebase Data Connect endpoint (NEXT_PUBLIC_DATA_CONNECT_ENDPOINT) is NOT SET in environment variables. " +
-    "Please set this variable in your .env file (e.g., https://your-project-id.dataconnect.firebasehosting.com/api/your-connector-id). " +
+    "Please set this variable in your .env file (e.g., https://YOUR_PROJECT_ID.dataconnect.firebasehosting.com/api/YOUR_CONNECTOR_ID). " +
     "You MUST restart your Next.js development server after modifying the .env file."
   );
 } else if (DATA_CONNECT_ENDPOINT.includes("YOUR_CONNECTOR_ID") || DATA_CONNECT_ENDPOINT.includes("your-connector-id")) {
@@ -89,11 +89,11 @@ Original error: ${error.message}`;
   }
 }
 
-// Query to fetch a list of videos. Schema: Video { id, url, title, description, createdAt }
+// Query to fetch a list of videos. Based on schema: Video { url, title, description, createdAt }
 export const GET_VIDEOS_QUERY = `
   query GetVideos {
     videos { # Assuming 'videos' is the query field for a list of Video types
-      id
+      id # Data Connect usually adds an 'id' if not explicitly defined as primary key in schema
       url
       title
       description
@@ -102,10 +102,10 @@ export const GET_VIDEOS_QUERY = `
   }
 `;
 
-// Query to fetch an HTMLSnippet by ID. Schema: HTMLSnippet { id, code, description, createdAt }
+// Query to fetch an HTMLSnippet by ID. Based on schema: HTMLSnippet { code, description, createdAt }
 export const GET_HTML_SNIPPET_QUERY = `
   query GetHTMLSnippet($id: ID!) {
-    htmlSnippet(id: $id) { # Adjust 'htmlSnippet' and 'id' field name as per your connector's schema
+    htmlSnippet(id: $id) { # Adjust 'htmlSnippet' and 'id' field name if your connector's query field is different
       id
       code
       description
@@ -114,13 +114,13 @@ export const GET_HTML_SNIPPET_QUERY = `
   }
 `;
 
-// Query to fetch an Exercise by ID. Schema: Exercise { id, description, code, createdAt }
+// Query to fetch an Exercise by ID. Based on schema: Exercise { description, code, createdAt }
 export const GET_EXERCISE_QUERY = `
   query GetExercise($id: ID!) {
-    exercise(id: $id) { # Adjust 'exercise' and 'id' field name as per your connector's schema
+    exercise(id: $id) { # Adjust 'exercise' and 'id' field name if your connector's query field is different
       id
       description
-      code # This is starter code or problem statement for the exercise
+      code
       createdAt
     }
   }
