@@ -32,7 +32,7 @@ export async function executeGraphQLQuery<T = any>(
     throw new Error(errorMessage);
   }
 
-  console.log(`[dataConnect.ts] Executing GraphQL query to ${DATA_CONNECT_ENDPOINT}:`, { query, variables });
+  console.log(`[dataConnect.ts] Executing GraphQL query to ${DATA_CONNECT_ENDPOINT}:`, { query: query.substring(0,100)+"...", variables }); // Log truncated query
 
   try {
     const response = await fetch(DATA_CONNECT_ENDPOINT, {
@@ -50,7 +50,7 @@ export async function executeGraphQLQuery<T = any>(
 
     console.log("[dataConnect.ts] GraphQL response status:", response.status, response.statusText);
 
-    const resultText = await response.text(); // Get raw response text for better debugging
+    const resultText = await response.text(); 
     let result: GraphQLResponse<T>;
     try {
         result = JSON.parse(resultText);
@@ -59,9 +59,8 @@ export async function executeGraphQLQuery<T = any>(
         throw new Error(`[dataConnect.ts] Failed to parse GraphQL JSON response. Server sent: ${resultText.substring(0, 200)}...`);
     }
 
-
     if (!response.ok) {
-      console.error('[dataConnect.ts] GraphQL query failed (HTTP not ok):', result.errors || response.statusText, 'Status:', response.status, 'Full result:', result);
+      console.error('[dataConnect.ts] GraphQL query failed (HTTP not ok):', result.errors || response.statusText, 'Status:', response.status, 'Full result:', JSON.stringify(result, null, 2));
       const errorMessages = result.errors?.map(e => e.message).join(', ') || response.statusText;
       throw new Error(`[dataConnect.ts] GraphQL request failed with HTTP status ${response.status}: ${errorMessages}`);
     }
@@ -74,11 +73,10 @@ export async function executeGraphQLQuery<T = any>(
 
     return result.data;
   } catch (error: any) {
-    // This catch block will now handle "Failed to fetch"
     console.error('[dataConnect.ts] Error executing GraphQL query (fetch failed or other error):', error);
     let detailedErrorMessage = `[dataConnect.ts] An unexpected error occurred while trying to execute the GraphQL query: ${error.message}`;
     
-    if (error.message && error.message.toLowerCase().includes('failed to fetch')) {
+    if (error.message && (error.message.toLowerCase().includes('failed to fetch') || error.message.toLowerCase().includes('networkerror'))) {
         detailedErrorMessage = `[dataConnect.ts] "Failed to fetch" from endpoint: ${DATA_CONNECT_ENDPOINT}. Possible causes:
 1. Incorrect NEXT_PUBLIC_DATA_CONNECT_ENDPOINT URL in .env (ensure it includes your Connector ID and is reachable).
 2. CORS (Cross-Origin Resource Sharing) issues: The Data Connect endpoint might not be configured to allow requests from your Next.js app's origin (e.g., http://localhost:9002). Check your Data Connect service's CORS settings.
@@ -91,48 +89,39 @@ Original error: ${error.message}`;
   }
 }
 
-// Query to fetch a list of videos
+// Query to fetch a list of videos. Schema: Video { id, url, title, description, createdAt }
 export const GET_VIDEOS_QUERY = `
   query GetVideos {
-    videos { # Assuming 'videos' is the query field for a list of Video types from your schema
+    videos { # Assuming 'videos' is the query field for a list of Video types
       id
-      name
-      youtubeUrl
-      videoId
-      createdAt # Or addedDate, depending on your schema
-      updatedAt
-    }
-  }
-`;
-
-// Query to fetch an HTMLSnippet by ID (e.g., for the HTML Presenter)
-// Assuming your schema has an 'htmlSnippet' query that takes an 'id' argument
-// and returns an 'HTMLSnippet' type with 'htmlContent'.
-export const GET_HTML_SNIPPET_QUERY = `
-  query GetHTMLSnippet($id: ID!) {
-    htmlSnippet(id: $id) { # Adjust 'htmlSnippet' and 'id' field name as per your schema
-      id
-      title
-      htmlContent # Field containing the HTML code
-      createdAt
-      updatedAt
-    }
-  }
-`;
-
-// Query to fetch an Exercise by ID (e.g., for the Exercises page)
-// Assuming your schema has an 'exercise' query that takes an 'id' argument
-// and returns an 'Exercise' type with 'htmlContent' (for instructions) or similar.
-export const GET_EXERCISE_QUERY = `
-  query GetExercise($id: ID!) {
-    exercise(id: $id) { # Adjust 'exercise' and 'id' field name as per your schema
-      id
+      url
       title
       description
-      htmlContent # Field for exercise instructions or problem statement in HTML
-      # starterCode # If you have a separate field for starter Java code
       createdAt
-      updatedAt
+    }
+  }
+`;
+
+// Query to fetch an HTMLSnippet by ID. Schema: HTMLSnippet { id, code, description, createdAt }
+export const GET_HTML_SNIPPET_QUERY = `
+  query GetHTMLSnippet($id: ID!) {
+    htmlSnippet(id: $id) { # Adjust 'htmlSnippet' and 'id' field name as per your connector's schema
+      id
+      code
+      description
+      createdAt
+    }
+  }
+`;
+
+// Query to fetch an Exercise by ID. Schema: Exercise { id, description, code, createdAt }
+export const GET_EXERCISE_QUERY = `
+  query GetExercise($id: ID!) {
+    exercise(id: $id) { # Adjust 'exercise' and 'id' field name as per your connector's schema
+      id
+      description
+      code # This is starter code or problem statement for the exercise
+      createdAt
     }
   }
 `;
