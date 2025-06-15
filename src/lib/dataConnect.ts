@@ -5,15 +5,13 @@ const DATA_CONNECT_ENDPOINT = process.env.NEXT_PUBLIC_DATA_CONNECT_ENDPOINT;
 
 if (!DATA_CONNECT_ENDPOINT) {
   console.error(
-    "[dataConnect.ts] CRITICAL ERROR: Firebase Data Connect endpoint (NEXT_PUBLIC_DATA_CONNECT_ENDPOINT) is NOT SET. " +
+    "[dataConnect.ts] CRITICAL ERROR: Firebase Data Connect endpoint (NEXT_PUBLIC_DATA_CONNECT_ENDPOINT) is NOT SET in environment variables. " +
     "Please set this variable in your .env file (e.g., https://your-project-id.dataconnect.firebasehosting.com/api/your-connector-id). " +
     "You MUST restart your Next.js development server after modifying the .env file."
   );
 } else if (DATA_CONNECT_ENDPOINT.includes("YOUR_CONNECTOR_ID") || DATA_CONNECT_ENDPOINT.includes("your-connector-id")) {
   console.warn(
-    "[dataConnect.ts] WARNING: Firebase Data Connect endpoint (NEXT_PUBLIC_DATA_CONNECT_ENDPOINT) appears to use a placeholder 'YOUR_CONNECTOR_ID'. " +
-    `Current value: "${DATA_CONNECT_ENDPOINT}". Please replace it with your actual connector ID. ` +
-    "You MUST restart your Next.js development server after modifying the .env file."
+    `[dataConnect.ts] WARNING: Firebase Data Connect endpoint (NEXT_PUBLIC_DATA_CONNECT_ENDPOINT) appears to use a placeholder 'YOUR_CONNECTOR_ID'. Current value: "${DATA_CONNECT_ENDPOINT}". Please replace it with your actual connector ID. You MUST restart your Next.js development server after modifying the .env file.`
   );
 } else {
   console.log("[dataConnect.ts] Firebase Data Connect endpoint configured:", DATA_CONNECT_ENDPOINT);
@@ -29,10 +27,12 @@ export async function executeGraphQLQuery<T = any>(
   variables?: Record<string, any>
 ): Promise<GraphQLResponse<T>['data']> {
   if (!DATA_CONNECT_ENDPOINT || DATA_CONNECT_ENDPOINT.includes("YOUR_CONNECTOR_ID") || DATA_CONNECT_ENDPOINT.includes("your-connector-id")) {
-    const errorMessage = "[dataConnect.ts] executeGraphQLQuery: Firebase Data Connect endpoint is not properly configured. See server logs/console for details. Cannot make GraphQL requests.";
+    const errorMessage = "[dataConnect.ts] executeGraphQLQuery: Firebase Data Connect endpoint is not properly configured. NEXT_PUBLIC_DATA_CONNECT_ENDPOINT is missing, invalid, or contains 'YOUR_CONNECTOR_ID'. Please check your .env file and restart the server. Cannot make GraphQL requests.";
     console.error(errorMessage);
     throw new Error(errorMessage);
   }
+
+  console.log(`[dataConnect.ts] Executing GraphQL query to ${DATA_CONNECT_ENDPOINT}:`, { query, variables });
 
   try {
     const response = await fetch(DATA_CONNECT_ENDPOINT, {
@@ -48,24 +48,46 @@ export async function executeGraphQLQuery<T = any>(
       }),
     });
 
-    const result = await response.json() as GraphQLResponse<T>;
+    console.log("[dataConnect.ts] GraphQL response status:", response.status, response.statusText);
+
+    const resultText = await response.text(); // Get raw response text for better debugging
+    let result: GraphQLResponse<T>;
+    try {
+        result = JSON.parse(resultText);
+    } catch (e: any) {
+        console.error("[dataConnect.ts] Failed to parse GraphQL JSON response. Raw text:", resultText, "Parse error:", e.message);
+        throw new Error(`[dataConnect.ts] Failed to parse GraphQL JSON response. Server sent: ${resultText.substring(0, 200)}...`);
+    }
+
 
     if (!response.ok) {
-      console.error('[dataConnect.ts] GraphQL query failed:', result.errors || response.statusText, 'Status:', response.status);
+      console.error('[dataConnect.ts] GraphQL query failed (HTTP not ok):', result.errors || response.statusText, 'Status:', response.status, 'Full result:', result);
       const errorMessages = result.errors?.map(e => e.message).join(', ') || response.statusText;
-      throw new Error(`[dataConnect.ts] GraphQL request failed: ${errorMessages}`);
+      throw new Error(`[dataConnect.ts] GraphQL request failed with HTTP status ${response.status}: ${errorMessages}`);
     }
 
     if (result.errors) {
-      console.error('[dataConnect.ts] GraphQL errors:', result.errors);
+      console.error('[dataConnect.ts] GraphQL query returned errors:', result.errors);
       const errorMessages = result.errors.map(e => e.message).join(', ');
       throw new Error(`[dataConnect.ts] GraphQL query returned errors: ${errorMessages}`);
     }
 
     return result.data;
-  } catch (error) {
-    console.error('[dataConnect.ts] Error executing GraphQL query:', error);
-    throw error; // Re-throw to be caught by the caller
+  } catch (error: any) {
+    // This catch block will now handle "Failed to fetch"
+    console.error('[dataConnect.ts] Error executing GraphQL query (fetch failed or other error):', error);
+    let detailedErrorMessage = `[dataConnect.ts] An unexpected error occurred while trying to execute the GraphQL query: ${error.message}`;
+    
+    if (error.message && error.message.toLowerCase().includes('failed to fetch')) {
+        detailedErrorMessage = `[dataConnect.ts] "Failed to fetch" from endpoint: ${DATA_CONNECT_ENDPOINT}. Possible causes:
+1. Incorrect NEXT_PUBLIC_DATA_CONNECT_ENDPOINT URL in .env (ensure it includes your Connector ID and is reachable).
+2. CORS (Cross-Origin Resource Sharing) issues: The Data Connect endpoint might not be configured to allow requests from your Next.js app's origin (e.g., http://localhost:9002). Check your Data Connect service's CORS settings.
+3. Network connectivity problems (e.g., no internet, firewall blocking the request).
+4. The Data Connect service/server might be down or not responding.
+Original error: ${error.message}`;
+    }
+    
+    throw new Error(detailedErrorMessage);
   }
 }
 
@@ -84,9 +106,11 @@ export const GET_VIDEOS_QUERY = `
 `;
 
 // Query to fetch an HTMLSnippet by ID (e.g., for the HTML Presenter)
+// Assuming your schema has an 'htmlSnippet' query that takes an 'id' argument
+// and returns an 'HTMLSnippet' type with 'htmlContent'.
 export const GET_HTML_SNIPPET_QUERY = `
   query GetHTMLSnippet($id: ID!) {
-    htmlSnippet(id: $id) { # Assuming 'htmlSnippet' is the query field from your schema
+    htmlSnippet(id: $id) { # Adjust 'htmlSnippet' and 'id' field name as per your schema
       id
       title
       htmlContent # Field containing the HTML code
@@ -97,9 +121,11 @@ export const GET_HTML_SNIPPET_QUERY = `
 `;
 
 // Query to fetch an Exercise by ID (e.g., for the Exercises page)
+// Assuming your schema has an 'exercise' query that takes an 'id' argument
+// and returns an 'Exercise' type with 'htmlContent' (for instructions) or similar.
 export const GET_EXERCISE_QUERY = `
   query GetExercise($id: ID!) {
-    exercise(id: $id) { # Assuming 'exercise' is the query field from your schema
+    exercise(id: $id) { # Adjust 'exercise' and 'id' field name as per your schema
       id
       title
       description
