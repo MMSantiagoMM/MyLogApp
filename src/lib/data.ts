@@ -1,39 +1,39 @@
 
-// Represents a Video item, aligning with a potential Data Connect schema
+// Represents a Video item, aligning with PostgreSQL schema and client needs
 export interface VideoData {
-  id: string; // Typically a unique ID from the database
+  id: string; // From PostgreSQL, typically string after conversion (e.g., from SERIAL or UUID)
   name: string;
   youtubeUrl: string;
   videoId: string;
-  createdAt?: string; // Or Date, depending on transformation. ISO string is common.
-  updatedAt?: string; // Or Date
+  addedDate?: string; // Used in the client, derived from createdAt
+  createdAt?: string; // ISO string from PostgreSQL
+  updatedAt?: string; // ISO string from PostgreSQL
 }
 
-// Represents an HTML Snippet item, aligning with Data Connect schema
+// Represents an HTML Snippet item, (currently localStorage, could align with Data Connect or other DB)
 export interface HTMLSnippetData {
   id: string;
   title: string;
-  htmlContent: string; // The actual HTML code
+  htmlContent: string; 
   createdAt?: string;
   updatedAt?: string;
 }
 
-// Represents an Exercise item, aligning with Data Connect schema
+// Represents an Exercise item, (currently localStorage, could align with Data Connect or other DB)
 export interface ExerciseData {
   id: string;
   title: string;
-  description?: string; // General description of the exercise
-  htmlContent?: string; // Could be used for instructions or problem statement in HTML
-  // starterCode?: string; // If there's a separate field for starter Java code
-  difficulty?: 'Easy' | 'Medium' | 'Hard'; // This might be part of your schema or client-side logic
-  tags?: string[]; // This might be part of your schema or client-side logic
+  description?: string; 
+  htmlContent?: string; 
+  difficulty?: 'Easy' | 'Medium' | 'Hard';
+  tags?: string[]; 
   createdAt?: string;
   updatedAt?: string;
 }
 
 
 // The mockExercises are kept as they might be used by other parts of the application (e.g., exercises page)
-// if not yet migrated to Data Connect
+// if not yet migrated to Data Connect or PostgreSQL
 export const mockExercises_localStorage: ExerciseData[] = [
   {
     id: '1',

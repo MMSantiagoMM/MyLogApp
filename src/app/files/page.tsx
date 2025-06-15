@@ -1,11 +1,11 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useTransition } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { VideoData } from '@/lib/data';
+import type { VideoData } from '@/lib/data'; // Ensure this interface matches your needs
 import { extractYouTubeVideoId } from '@/lib/youtubeUtils';
 import { Youtube, Link as LinkIcon, Trash2, Film, AlertTriangle, Loader2 } from "lucide-react";
 import {
@@ -19,59 +19,40 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { executeGraphQLQuery, GET_VIDEOS_QUERY } from '@/lib/dataConnect';
+import { fetchVideosAction, addVideoAction, deleteVideoAction } from './actions';
+
+// Check for POSTGRES_URL presence (only for client-side guidance, actual connection is server-side)
+const POSTGRES_URL_CLIENT_CHECK = process.env.NEXT_PUBLIC_POSTGRES_URL_FOR_CLIENT_CHECK; // This won't exist by default
 
 export default function VideoHubPage() {
   const [videos, setVideos] = useState<VideoData[]>([]);
   const [videoUrlInput, setVideoUrlInput] = useState<string>("");
   const [videoNameInput, setVideoNameInput] = useState<string>("");
   const [isLoadingVideos, setIsLoadingVideos] = useState<boolean>(true);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // Kept for potential future mutation UI
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [videoToDelete, setVideoToDelete] = useState<VideoData | null>(null); // Kept for potential future mutation UI
+  const [videoToDelete, setVideoToDelete] = useState<VideoData | null>(null);
   const { toast } = useToast();
-  const [dataConnectConfigured, setDataConnectConfigured] = useState(false);
+  const [isPending, startTransition] = useTransition(); // For Server Actions
 
-  const fetchVideos = useCallback(async () => {
-    const endpoint = process.env.NEXT_PUBLIC_DATA_CONNECT_ENDPOINT;
-    if (!endpoint || endpoint.includes("YOUR_CONNECTOR_ID")) {
-      console.error("[VideoHubPage] fetchVideos: Firebase Data Connect endpoint not configured.");
-      toast({
-        variant: "destructive",
-        title: "Configuration Error",
-        description: "Firebase Data Connect endpoint not configured. Please check .env and restart the server.",
-        duration: 10000,
-      });
-      setIsLoadingVideos(false);
-      setDataConnectConfigured(false);
-      return;
-    }
-    setDataConnectConfigured(true);
+  const [postgresConfiguredClientCheck, setPostgresConfiguredClientCheck] = useState(false);
+
+
+  const loadVideos = useCallback(async () => {
     setIsLoadingVideos(true);
-
     try {
-      const response = await executeGraphQLQuery<{ videos: VideoData[] }>(GET_VIDEOS_QUERY);
-      // Assuming the 'videos' field in your GraphQL response is an array of VideoData compatible objects.
-      // You might need to transform the data if your schema names fields differently (e.g., map `createdAt` to `addedDate`).
-      const fetchedVideos = response?.videos?.map(video => ({
-        ...video,
-        // Ensure 'id' exists, it's crucial for React keys and future operations
-        id: video.id || String(Date.now() + Math.random()), // Fallback if id is missing, but schema should guarantee it
-        addedDate: video.createdAt || new Date().toISOString(), // Use createdAt or a similar field
-      })) || [];
-      
-      // Sort by date, assuming addedDate (mapped from createdAt) is a valid ISO string
-      fetchedVideos.sort((a, b) => new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime());
+      const fetchedVideos = await fetchVideosAction();
+      // Sort by date, assuming addedDate is a valid ISO string or Date object
+      fetchedVideos.sort((a, b) => new Date(b.addedDate || 0).getTime() - new Date(a.addedDate || 0).getTime());
       setVideos(fetchedVideos);
-
     } catch (error: any) {
-      console.error("Error fetching videos from Data Connect:", error);
+      console.error("Error fetching videos:", error);
       toast({
         variant: "destructive",
         title: "Error loading videos",
-        description: error.message || "Could not load videos from the Data Connect service.",
+        description: error.message || "Could not load videos from the database.",
       });
-       setVideos([]); // Clear videos on error
+      setVideos([]);
     } finally {
       setIsLoadingVideos(false);
     }
@@ -79,50 +60,70 @@ export default function VideoHubPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    const endpoint = process.env.NEXT_PUBLIC_DATA_CONNECT_ENDPOINT;
-    if (endpoint && !endpoint.includes("YOUR_CONNECTOR_ID")) {
-      setDataConnectConfigured(true);
-      fetchVideos();
+    // This client-side check is illustrative; actual DB connection happens server-side.
+    // For a real check, you might have a server action that confirms DB connectivity.
+    if (POSTGRES_URL_CLIENT_CHECK || typeof window !== 'undefined') { // A simple way to assume config exists if not explicitly checking
+        setPostgresConfiguredClientCheck(true); 
+        loadVideos();
     } else {
-      setIsLoadingVideos(false);
-      setDataConnectConfigured(false);
+        console.warn("[VideoHubPage] POSTGRES_URL seems not configured for client-side checks. This is informational; actual connection is server-side.");
+        setIsLoadingVideos(false);
+        setPostgresConfiguredClientCheck(false); // Or true if you want to proceed assuming server has it
     }
-  }, [fetchVideos]);
+  }, [loadVideos]);
 
 
-  const handleAddVideoStub = async () => {
-    toast({
-      title: "Feature Coming Soon",
-      description: "Adding videos via Data Connect is not yet implemented in this example.",
+  const handleAddVideo = async () => {
+    if (!videoUrlInput.trim()) {
+      toast({ variant: "destructive", title: "Validation Error", description: "Video URL cannot be empty." });
+      return;
+    }
+    const videoId = extractYouTubeVideoId(videoUrlInput);
+    if (!videoId) {
+      toast({ variant: "destructive", title: "Invalid URL", description: "Could not extract YouTube video ID. Please check the URL." });
+      return;
+    }
+    
+    const nameToSave = videoNameInput.trim() || `Video: ${videoId.substring(0,5)}...`;
+
+    setIsSubmitting(true);
+    startTransition(async () => {
+      const result = await addVideoAction(nameToSave, videoUrlInput);
+      if (result.success && result.video) {
+        toast({ title: "Video Added", description: `"${result.video.name}" has been added to your hub.` });
+        setVideoUrlInput("");
+        setVideoNameInput("");
+        // Optimistic update or re-fetch:
+        // setVideos(prev => [result.video!, ...prev].sort((a, b) => new Date(b.addedDate || 0).getTime() - new Date(a.addedDate || 0).getTime()));
+        // Or, for consistency with revalidatePath, just reload:
+        loadVideos(); 
+      } else {
+        toast({ variant: "destructive", title: "Error Adding Video", description: result.error || "An unknown error occurred." });
+      }
+      setIsSubmitting(false);
     });
-    // This is where you would implement a GraphQL mutation to add a video.
-    // For now, it's a placeholder.
-    // const videoId = extractYouTubeVideoId(videoUrlInput);
-    // if (!videoId) { /* ... */ }
-    // const videoPayload = { name: videoNameInput, youtubeUrl: videoUrlInput, videoId };
-    // await executeGraphQLQuery(ADD_VIDEO_MUTATION, { input: videoPayload });
-    // fetchVideos(); // Re-fetch after adding
   };
 
-  const handleDeleteVideoStub = (video: VideoData) => {
-     toast({
-      title: "Feature Coming Soon",
-      description: "Deleting videos via Data Connect is not yet implemented in this example.",
-    });
-    // setVideoToDelete(video); // This would open a confirmation dialog
+  const handleDeleteVideo = (video: VideoData) => {
+    setVideoToDelete(video);
   };
 
-  const confirmDeleteStub = async () => {
-     toast({
-      title: "Feature Coming Soon",
-      description: "Deleting videos via Data Connect is not yet implemented in this example.",
+  const confirmDelete = async () => {
+    if (!videoToDelete) return;
+    setIsSubmitting(true);
+    startTransition(async () => {
+      const result = await deleteVideoAction(videoToDelete.id);
+      if (result.success) {
+        toast({ title: "Video Deleted", description: `"${videoToDelete.name}" has been removed.` });
+        // setVideos(prev => prev.filter(v => v.id !== videoToDelete.id));
+        // Or, for consistency with revalidatePath, just reload:
+        loadVideos();
+      } else {
+        toast({ variant: "destructive", title: "Error Deleting Video", description: result.error || "An unknown error occurred." });
+      }
+      setVideoToDelete(null);
+      setIsSubmitting(false);
     });
-    // This is where you would implement a GraphQL mutation to delete a video.
-    // if (videoToDelete) {
-    //   await executeGraphQLQuery(DELETE_VIDEO_MUTATION, { id: videoToDelete.id });
-    //   fetchVideos(); // Re-fetch after deleting
-    //   setVideoToDelete(null);
-    // }
   };
 
 
@@ -135,20 +136,23 @@ export default function VideoHubPage() {
     );
   }
 
-  if (isMounted && !dataConnectConfigured && !isLoadingVideos) {
+  // This check remains illustrative. The actual POSTGRES_URL is used server-side.
+  if (isMounted && !postgresConfiguredClientCheck && !isLoadingVideos && !POSTGRES_URL_CLIENT_CHECK) {
     return (
        <div className="flex flex-col justify-center items-center h-full text-center p-8">
         <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
-        <h2 className="text-2xl font-semibold mb-2">Configuration Error</h2>
+        <h2 className="text-2xl font-semibold mb-2">Database Configuration Note</h2>
         <p className="text-muted-foreground">
-          Firebase Data Connect endpoint (NEXT_PUBLIC_DATA_CONNECT_ENDPOINT) is missing, invalid, or still contains "YOUR_CONNECTOR_ID".
+          The Video Hub now connects to a PostgreSQL database.
         </p>
         <p className="text-muted-foreground mt-1">
-          Please ensure it's correctly set in your <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">.env</code> file
-          (e.g., <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">https://your-project-id.dataconnect.firebasehosting.com/api/your-actual-connector-id</code>).
+          Ensure the <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">POSTGRES_URL</code> is correctly set in your server's <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">.env</code> file.
+        </p>
+         <p className="text-muted-foreground mt-1">
+          This message appears because a client-side check variable for POSTGRES_URL is not set (this is normal).
         </p>
         <p className="text-muted-foreground mt-2 font-semibold">
-          You MUST restart the Next.js development server after modifying the <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">.env</code> file.
+          You MUST restart the Next.js development server after modifying the <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">.env</code> file for server-side changes to take effect.
         </p>
       </div>
     );
@@ -158,18 +162,15 @@ export default function VideoHubPage() {
     <div className="space-y-8">
       <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
         <Youtube className="w-8 h-8 text-primary" />
-        Video Hub (Data Connect)
+        Video Hub (PostgreSQL)
       </h1>
 
       <Card>
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <LinkIcon className="w-6 h-6" />
-            Add YouTube Video (Coming Soon)
+            Add YouTube Video
           </CardTitle>
-          <CardDescription>
-            Functionality to add new videos via Data Connect will be implemented here.
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
@@ -177,17 +178,17 @@ export default function VideoHubPage() {
             placeholder="YouTube Video URL (e.g., https://www.youtube.com/watch?v=...)"
             value={videoUrlInput}
             onChange={(e) => setVideoUrlInput(e.target.value)}
-            disabled // Disabled as add functionality is not implemented
+            disabled={isSubmitting || isPending}
           />
           <Input
             type="text"
             placeholder="Optional: Custom Video Name"
             value={videoNameInput}
             onChange={(e) => setVideoNameInput(e.target.value)}
-            disabled // Disabled as add functionality is not implemented
+            disabled={isSubmitting || isPending}
           />
-          <Button onClick={handleAddVideoStub} className="w-full sm:w-auto" disabled>
-            <Youtube className="mr-2 h-4 w-4" />
+          <Button onClick={handleAddVideo} className="w-full sm:w-auto" disabled={isSubmitting || isPending}>
+            {isSubmitting || isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Youtube className="mr-2 h-4 w-4" />}
             Add Video
           </Button>
         </CardContent>
@@ -199,16 +200,16 @@ export default function VideoHubPage() {
            {isLoadingVideos && (
             <div className="flex items-center text-sm text-muted-foreground py-10 justify-center">
               <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-              Loading videos from Data Connect...
+              Loading videos from PostgreSQL...
             </div>
           )}
         </CardHeader>
         <CardContent>
-          {!isLoadingVideos && videos.length === 0 && dataConnectConfigured && (
+          {!isLoadingVideos && videos.length === 0 && (
              <div className="text-center py-12 text-muted-foreground">
                 <Film className="w-16 h-16 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-semibold">No Videos Yet</p>
-                <p>Once add functionality is implemented, videos will appear here.</p>
+                <p>Add some videos using the form above.</p>
             </div>
           )}
           {videos.length > 0 && (
@@ -239,13 +240,13 @@ export default function VideoHubPage() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleDeleteVideoStub(video)}
+                      onClick={() => handleDeleteVideo(video)}
                       className="w-full"
                       aria-label={`Delete ${video.name}`}
-                      disabled // Disabled as delete functionality is not implemented
+                      disabled={isSubmitting || isPending}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
-                       Delete (Coming Soon)
+                       Delete
                     </Button>
                   </CardFooter>
                 </Card>
@@ -255,8 +256,7 @@ export default function VideoHubPage() {
         </CardContent>
       </Card>
 
-      {/* Delete confirmation dialog - kept for future use with mutations */}
-      {/* {videoToDelete && (
+      {videoToDelete && (
         <AlertDialog open={!!videoToDelete} onOpenChange={(open) => !open && setVideoToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -267,15 +267,15 @@ export default function VideoHubPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setVideoToDelete(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteStub} disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              <AlertDialogCancel onClick={() => setVideoToDelete(null)} disabled={isSubmitting || isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting || isPending}>
+                {(isSubmitting || isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      )} */}
+      )}
     </div>
   );
 }
