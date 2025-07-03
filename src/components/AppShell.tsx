@@ -3,8 +3,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image"; 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import {
   SidebarProvider,
   Sidebar,
@@ -19,18 +19,18 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  LayoutDashboard,
-  ListChecks,
-  TerminalSquare,
-  Presentation,
-  Moon,
-  Sun,
-  PanelLeftOpen,
-  PanelLeftClose,
-  Coffee, 
-  Youtube
+    LayoutDashboard,
+    ListChecks,
+    TerminalSquare,
+    Presentation,
+    Moon,
+    Sun,
+    Coffee,
+    Youtube,
+    LogOut,
+    Loader2
 } from "lucide-react";
 
 // Simple theme toggle (conceptual, full implementation requires theme context)
@@ -85,20 +85,60 @@ const NavItem = ({ href, icon: Icon, label }: { href: string; icon: React.Elemen
 };
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
+  const { user, loading, logout } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const navItems = [
-    { href: "/", icon: LayoutDashboard, label: "Home" },
+    { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/editor", icon: TerminalSquare, label: "Java Editor" },
     { href: "/files", icon: Youtube, label: "Video Hub" },
     { href: "/exercises", icon: ListChecks, label: "Exercises" },
     { href: "/html-presenter", icon: Presentation, label: "HTML Presenter" },
   ];
 
+  const publicPaths = ['/login', '/signup', '/'];
+  const isPublicPath = publicPaths.includes(pathname);
+
+  React.useEffect(() => {
+    if (loading) return; // Wait until loading is finished
+
+    if (!user && !isPublicPath) {
+      router.push('/login');
+    } else if (user && isPublicPath) {
+      router.push('/dashboard');
+    }
+  }, [user, loading, isPublicPath, router, pathname]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // If we are on a public path and not logged in, just render the content
+  if (!user && isPublicPath) {
+    return <>{children}</>;
+  }
+  
+  // If we are on a protected path and not logged in, show a loader while redirecting
+  if (!user) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // If user is authenticated, render the full shell
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen bg-background">
         <Sidebar collapsible="icon" variant="sidebar" className="border-r">
           <SidebarHeader className="flex items-center justify-between p-3">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/dashboard" className="flex items-center gap-2">
               <Coffee className="h-7 w-7 text-primary" />
               <span className="font-headline text-base font-semibold text-foreground group-data-[collapsible=icon]:hidden">
                 My Logic App
@@ -118,15 +158,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
              <div className="flex items-center justify-between p-2 group-data-[collapsible=icon]:justify-center">
               <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src="https://placehold.co/40x40.png" alt="User Avatar" data-ai-hint="user avatar" />
-                  <AvatarFallback>MC</AvatarFallback>
+                  <AvatarFallback>{user.email ? user.email.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
                 </Avatar>
                 <div className="text-sm">
-                  <p className="font-medium text-foreground">User</p>
-                  <p className="text-xs text-muted-foreground">student@example.com</p>
+                  <p className="font-medium text-foreground truncate max-w-[120px]" title={user.email ?? ''}>{user.email}</p>
                 </div>
               </div>
-              <ThemeToggle />
+              <div className="flex items-center">
+                 <ThemeToggle />
+                 <Button variant="ghost" size="icon" onClick={logout} aria-label="Logout">
+                    <LogOut className="h-5 w-5" />
+                 </Button>
+              </div>
             </div>
           </SidebarFooter>
         </Sidebar>

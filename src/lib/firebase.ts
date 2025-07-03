@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-// import { getAuth } from 'firebase/auth'; // If you plan to use Firebase Authentication
+import { getAuth } from 'firebase/auth'; // If you plan to use Firebase Authentication
 // import { getStorage } from 'firebase/storage'; // If you plan to use Firebase Storage
 
 const firebaseConfig = {
@@ -32,17 +32,18 @@ if (!getApps().length) {
 }
 
 let db;
+let auth;
 if (app) {
   db = getFirestore(app);
+  auth = getAuth(app);
 } else {
   // Fallback or error handling for db if app didn't initialize
   console.error(
-    "[firebase.ts] Firebase app failed to initialize. Firestore will not be available. " +
+    "[firebase.ts] Firebase app failed to initialize. Firestore and Auth will not be available. " +
     "Review previous error messages for missing Firebase configuration."
   );
 }
 
-// const auth = getAuth(app); // If using auth
 // const storage = getStorage(app); // If using storage
 
-export { app, db /*, auth, storage */ };
+export { app, db, auth };
