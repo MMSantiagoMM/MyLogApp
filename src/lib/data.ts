@@ -28,3 +28,10 @@ export interface ExerciseItem {
   htmlContent: string;
   createdAt: string;
 }
+
+export interface HtmlPresenterItem {
+  id: string;
+  title: string;
+  htmlContent: string;
+  createdAt: string;
+}

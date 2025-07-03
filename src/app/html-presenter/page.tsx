@@ -20,6 +20,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { db } from '@/lib/firebase';
+import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
+import type { HtmlPresenterItem } from '@/lib/data';
+import { cn } from "@/lib/utils";
 
 const defaultHtmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -45,15 +50,6 @@ const defaultHtmlContent = `<!DOCTYPE html>
 </body>
 </html>`;
 
-interface HtmlPresenterItem {
-  id: string;
-  title: string;
-  htmlContent: string;
-  createdAt: string;
-}
-
-const LOCAL_STORAGE_KEY = "htmlPresentersList_v1"; 
-
 export default function HtmlPresenterPage() {
   const [presenters, setPresenters] = useState<HtmlPresenterItem[]>([]);
   const [view, setView] = useState<'list' | 'edit' | 'create'>('list');
@@ -63,47 +59,63 @@ export default function HtmlPresenterPage() {
   const [editingHtmlContent, setEditingHtmlContent] = useState<string>(defaultHtmlContent);
 
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const [editorTheme, setEditorTheme] = useState('vs-light');
-  const [presenterToDelete, setPresenterToDelete] = useState<string | null>(null);
+  const [presenterToDelete, setPresenterToDelete] = useState<HtmlPresenterItem | null>(null);
+  const { toast } = useToast();
+
+  const fetchPresenters = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const presentersCollection = collection(db, 'presenter');
+      const q = query(presentersCollection, orderBy('createdAt', 'desc'));
+      const presenterSnapshot = await getDocs(q);
+      const presenterList = presenterSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          title: data.title,
+          htmlContent: data.htmlContent,
+          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
+        };
+      });
+      setPresenters(presenterList);
+    } catch (err: any) {
+      console.error("Error fetching presenters:", err);
+      let userFriendlyError = "Could not load presenters. " + (err.message || "");
+      if (err.code === 'permission-denied') {
+          userFriendlyError = "Firestore Security Rules are blocking access. Please update your Firestore rules in the Firebase Console.";
+      }
+      setError(userFriendlyError);
+      toast({ variant: "destructive", title: "Error", description: userFriendlyError });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     setIsMounted(true);
-    try {
-      const savedPresenters = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (savedPresenters) {
-        setPresenters(JSON.parse(savedPresenters));
-      }
-    } catch (error) {
-      console.error("Failed to load presenters from localStorage:", error);
-      setPresenters([]); 
+    if (db) {
+        fetchPresenters();
+    } else {
+        setError("Firebase Firestore is not initialized. Check your configuration.");
+        setIsLoading(false);
     }
 
     const updateTheme = () => {
-      if (document.documentElement.classList.contains('dark')) {
-        setEditorTheme('vs-dark');
-      } else {
-        setEditorTheme('vs-light');
-      }
+      setEditorTheme(document.documentElement.classList.contains('dark') ? 'vs-dark' : 'vs-light');
     };
     updateTheme(); 
 
     const observer = new MutationObserver(updateTheme);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isMounted) {
-      try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(presenters));
-      } catch (error) {
-        console.error("Failed to save presenters to localStorage:", error);
-      }
-    }
-  }, [presenters, isMounted]);
+    return () => observer.disconnect();
+  }, [fetchPresenters]);
 
   const handleCreateNewClick = () => {
     setCurrentEditingPresenter(null);
@@ -119,36 +131,54 @@ export default function HtmlPresenterPage() {
     setView('edit');
   };
 
-  const handleSavePresenter = () => {
+  const handleSavePresenter = async () => {
     if (!editingTitle.trim()) {
-      alert("Title cannot be empty."); 
+      toast({ variant: "destructive", title: "Title cannot be empty."}); 
       return;
     }
 
-    if (view === 'create') {
-      const newPresenter: HtmlPresenterItem = {
-        id: Date.now().toString(),
-        title: editingTitle,
-        htmlContent: editingHtmlContent,
-        createdAt: new Date().toISOString(),
-      };
-      setPresenters(prev => [newPresenter, ...prev]);
-    } else if (view === 'edit' && currentEditingPresenter) {
-      setPresenters(prev => 
-        prev.map(p => 
-          p.id === currentEditingPresenter.id 
-            ? { ...p, title: editingTitle, htmlContent: editingHtmlContent } 
-            : p
-        )
-      );
+    setIsSubmitting(true);
+    try {
+      if (view === 'create') {
+        await addDoc(collection(db, 'presenter'), {
+          title: editingTitle,
+          htmlContent: editingHtmlContent,
+          createdAt: serverTimestamp(),
+        });
+        toast({ title: "Presenter Created", description: `"${editingTitle}" has been saved.` });
+      } else if (view === 'edit' && currentEditingPresenter) {
+        const presenterRef = doc(db, 'presenter', currentEditingPresenter.id);
+        await updateDoc(presenterRef, {
+          title: editingTitle,
+          htmlContent: editingHtmlContent,
+        });
+        toast({ title: "Presenter Updated", description: `"${editingTitle}" has been updated.` });
+      }
+      setView('list');
+      setCurrentEditingPresenter(null);
+      fetchPresenters();
+    } catch (err: any) {
+      console.error("Error saving presenter:", err);
+      toast({ variant: "destructive", title: "Error Saving Presenter", description: err.message });
+    } finally {
+      setIsSubmitting(false);
     }
-    setView('list');
-    setCurrentEditingPresenter(null);
   };
 
-  const confirmDelete = (presenterId: string) => {
-    setPresenters(prev => prev.filter(p => p.id !== presenterId));
-    setPresenterToDelete(null);
+  const confirmDelete = async () => {
+    if (!presenterToDelete) return;
+    setIsSubmitting(true);
+    try {
+      await deleteDoc(doc(db, 'presenter', presenterToDelete.id));
+      toast({ title: "Presenter Deleted", description: `"${presenterToDelete.title}" has been removed.`});
+      fetchPresenters();
+    } catch (err: any) {
+      console.error("Error deleting presenter:", err);
+      toast({ variant: "destructive", title: "Error Deleting Presenter", description: err.message });
+    } finally {
+      setIsSubmitting(false);
+      setPresenterToDelete(null);
+    }
   };
 
   const handleCancelEditCreate = () => {
@@ -185,6 +215,7 @@ export default function HtmlPresenterPage() {
             <Presentation className="w-8 h-8" />
             HTML Presenters
           </h1>
+          <CardDescription>Create, manage, and view your HTML presentations.</CardDescription>
         </div>
         <div className="flex justify-end">
           <Button onClick={handleCreateNewClick}>
@@ -193,7 +224,22 @@ export default function HtmlPresenterPage() {
           </Button>
         </div>
 
-        {presenters.length === 0 ? (
+        {isLoading && (
+            <div className="flex items-center text-lg text-muted-foreground py-10 justify-center">
+                <Loader2 className="mr-3 h-8 w-8 animate-spin" />
+                Loading presenters from Firestore...
+            </div>
+        )}
+
+        {!isLoading && error && (
+            <div className="text-center py-12 text-destructive">
+                <AlertTriangle className="w-16 h-16 mx-auto mb-4" />
+                <p className="text-lg font-semibold">Failed to Load Presenters</p>
+                <p className="max-w-md mx-auto">{error}</p>
+            </div>
+        )}
+
+        {!isLoading && !error && presenters.length === 0 && (
           <Card className="text-center py-12">
             <CardHeader>
               <FileText className="w-16 h-16 mx-auto text-muted-foreground opacity-50 mb-4" />
@@ -203,9 +249,11 @@ export default function HtmlPresenterPage() {
               <CardDescription>Click "Create New Presenter" to get started.</CardDescription>
             </CardContent>
           </Card>
-        ) : (
+        )} 
+        
+        {!isLoading && !error && presenters.length > 0 && (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {presenters.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(presenter => (
+            {presenters.map(presenter => (
               <Card key={presenter.id} className="flex flex-col">
                 <CardHeader>
                   <CardTitle className="truncate">{presenter.title}</CardTitle>
@@ -231,57 +279,58 @@ export default function HtmlPresenterPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-end gap-2 pt-4">
-                  <Button variant="outline" size="sm" onClick={() => handleExpandPresenter(presenter.htmlContent)}>
+                  <Button variant="outline" size="sm" onClick={() => handleExpandPresenter(presenter.htmlContent)} disabled={isSubmitting}>
                     <Expand className="mr-1 h-4 w-4" /> Expand
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleEditClick(presenter)}>
+                  <Button variant="outline" size="sm" onClick={() => handleEditClick(presenter)} disabled={isSubmitting}>
                     <Edit3 className="mr-1 h-4 w-4" /> Edit
                   </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" onClick={() => setPresenterToDelete(presenter.id)}>
-                        <Trash2 className="mr-1 h-4 w-4" /> Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    {presenterToDelete === presenter.id && (
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the presenter titled "{presenter.title}".
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel onClick={() => setPresenterToDelete(null)}>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => confirmDelete(presenter.id)}>
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    )}
-                  </AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" onClick={() => setPresenterToDelete(presenter)} disabled={isSubmitting}>
+                      <Trash2 className="mr-1 h-4 w-4" /> Delete
+                    </Button>
+                  </AlertDialogTrigger>
                 </CardFooter>
               </Card>
             ))}
           </div>
         )}
+        {presenterToDelete && (
+          <AlertDialog open={!!presenterToDelete} onOpenChange={(open) => !open && setPresenterToDelete(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the presenter titled "{presenterToDelete.title}".
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setPresenterToDelete(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
     );
   }
 
-  // 'edit' or 'create' view
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-y-2">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
           <Presentation className="w-8 h-8" />
           {view === 'create' ? 'Create New Presenter' : `Edit: ${currentEditingPresenter?.title || 'Presenter'}`}
         </h1>
-        <div className="flex gap-2">
-           <Button onClick={handleSavePresenter}>
-            <Save className="mr-2 h-4 w-4" /> Save
+        <div className="flex gap-2 flex-wrap">
+           <Button onClick={handleSavePresenter} disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {isSubmitting ? "Saving..." : "Save Presenter"}
           </Button>
-          <Button variant="outline" onClick={handleCancelEditCreate}>
+          <Button variant="outline" onClick={handleCancelEditCreate} disabled={isSubmitting}>
             <XCircle className="mr-2 h-4 w-4" /> Cancel
           </Button>
         </div>
@@ -292,16 +341,18 @@ export default function HtmlPresenterPage() {
         placeholder="Presenter Title"
         value={editingTitle}
         onChange={(e) => setEditingTitle(e.target.value)}
-        className="text-lg font-semibold mb-4"
+        className="text-lg font-semibold"
+        disabled={isSubmitting}
       />
 
-      <div className="grid md:grid-cols-2 gap-8 h-[calc(100vh-16rem)] md:h-[calc(100vh-14rem)]">
+      <div className="grid md:grid-cols-2 gap-8 h-[calc(100vh-20rem)] md:h-[calc(100vh-18rem)]">
         <Card className="flex flex-col h-full">
           <CardHeader>
             <CardTitle className="font-headline flex items-center gap-2">
               <CodeXml className="w-6 h-6" />
               HTML Editor
             </CardTitle>
+            <CardDescription>Enter the HTML content for your presenter.</CardDescription>
           </CardHeader>
           <CardContent className="flex-grow p-0 md:p-1">
             <div className="rounded-md border h-full overflow-hidden">
@@ -329,6 +380,7 @@ export default function HtmlPresenterPage() {
               <MonitorPlay className="w-6 h-6" />
               Live Preview
             </CardTitle>
+            <CardDescription>See how your presenter will be rendered.</CardDescription>
           </CardHeader>
           <CardContent className="flex-grow p-0 md:p-1">
             <iframe
@@ -343,4 +395,3 @@ export default function HtmlPresenterPage() {
     </div>
   );
 }
-
