@@ -5,9 +5,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { VideoDataClient, Video as DataConnectVideo } from '@/lib/data'; // Using VideoDataClient for page state
+import type { Video, VideoDataClient } from '@/lib/data';
 import { extractYouTubeVideoId } from '@/lib/youtubeUtils';
-import { Youtube, Link as LinkIcon, Trash2, Film, AlertTriangle, Loader2 } from "lucide-react";
+import { Youtube, Link as LinkIcon, Trash2, Film, AlertTriangle, Loader2, CheckCircle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,101 +19,124 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { executeGraphQLQuery, GET_VIDEOS_QUERY } from '@/lib/dataConnect';
 
-const DATA_CONNECT_ENDPOINT_CLIENT_CHECK = process.env.NEXT_PUBLIC_DATA_CONNECT_ENDPOINT;
+import { db } from '@/lib/firebase';
+import { collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
 
 export default function VideoHubPage() {
   const [videos, setVideos] = useState<VideoDataClient[]>([]);
   const [videoUrlInput, setVideoUrlInput] = useState<string>("");
   const [videoNameInput, setVideoNameInput] = useState<string>("");
-  
-  const [isLoadingVideos, setIsLoadingVideos] = useState<boolean>(true);
+
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
   const [isMounted, setIsMounted] = useState(false);
   const [videoToDelete, setVideoToDelete] = useState<VideoDataClient | null>(null);
   const { toast } = useToast();
 
-  const [dataConnectConfigured, setDataConnectConfigured] = useState(false);
-  const [dataConnectError, setDataConnectError] = useState<string | null>(null);
-
   const fetchVideos = useCallback(async () => {
-    if (!dataConnectConfigured) {
-      console.warn("[VideoHubPage] Data Connect not configured, skipping fetchVideos.");
-      setIsLoadingVideos(false);
-      return;
-    }
-    setIsLoadingVideos(true);
-    setDataConnectError(null);
+    setIsLoading(true);
+    setError(null);
     try {
-      console.log("[VideoHubPage] Fetching videos using Data Connect...");
-      const result = await executeGraphQLQuery<{ videos: DataConnectVideo[] }>(GET_VIDEOS_QUERY);
-      
-      if (result && result.videos) {
-        const transformedVideos: VideoDataClient[] = result.videos.map(dcVideo => {
-          const videoId = extractYouTubeVideoId(dcVideo.url);
-          return {
-            id: dcVideo.id,
-            name: dcVideo.title,
-            youtubeUrl: dcVideo.url,
-            videoId: videoId || "INVALID_URL",
-            description: dcVideo.description,
-            addedDate: new Date(dcVideo.createdAt).toISOString(),
-          };
-        }).filter(video => video.videoId !== "INVALID_URL");
+      console.log("[VideoHubPage] Fetching videos from Firestore...");
+      const videosCollection = collection(db, 'videos');
+      const q = query(videosCollection, orderBy('createdAt', 'desc'));
+      const videoSnapshot = await getDocs(q);
 
-        transformedVideos.sort((a, b) => new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime());
-        setVideos(transformedVideos);
-        console.log("[VideoHubPage] Successfully fetched and transformed videos:", transformedVideos.length);
-      } else {
-        console.warn("[VideoHubPage] No videos found or unexpected result structure:", result);
-        setVideos([]);
-      }
-    } catch (error: any) {
-      console.error("[VideoHubPage] Error fetching videos via Data Connect:", error);
-      setDataConnectError(error.message || "An unknown error occurred while fetching videos.");
-      setVideos([]);
+      const videosList = videoSnapshot.docs.map(doc => {
+        const data = doc.data() as Omit<Video, 'id'>;
+        return {
+          id: doc.id,
+          name: data.name,
+          youtubeUrl: data.youtubeUrl,
+          videoId: data.videoId,
+          description: data.description,
+          // Safely convert Firestore Timestamp to ISO string
+          addedDate: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
+        };
+      });
+
+      setVideos(videosList);
+      console.log("[VideoHubPage] Successfully fetched videos:", videosList.length);
+    } catch (err: any) {
+      console.error("[VideoHubPage] Error fetching videos from Firestore:", err);
+      setError(err.message || "Could not load videos. Please check your Firestore connection and rules.");
+      toast({
+        variant: "destructive",
+        title: "Error Loading Videos",
+        description: err.message,
+      });
     } finally {
-      setIsLoadingVideos(false);
+      setIsLoading(false);
     }
-  }, [dataConnectConfigured]);
+  }, [toast]);
 
   useEffect(() => {
     setIsMounted(true);
-    if (DATA_CONNECT_ENDPOINT_CLIENT_CHECK && 
-        !DATA_CONNECT_ENDPOINT_CLIENT_CHECK.includes("YOUR_CONNECTOR_ID")) {
-      setDataConnectConfigured(true);
+    if (db) {
+        fetchVideos();
     } else {
-      setDataConnectConfigured(false);
-      setIsLoadingVideos(false);
-      const errorMsg = "Firebase Data Connect endpoint is not correctly set. Please set your Connector ID in the NEXT_PUBLIC_DATA_CONNECT_ENDPOINT variable in your .env file and restart the server.";
-      console.error(`[VideoHubPage] ${errorMsg}`);
-      setDataConnectError(errorMsg);
+        setError("Firebase Firestore is not initialized. Check your .env configuration.");
+        setIsLoading(false);
     }
-  }, []);
+  }, [fetchVideos]);
 
-  useEffect(() => {
-    if (isMounted && dataConnectConfigured) {
-      fetchVideos();
+  const handleAddVideo = async () => {
+    const videoId = extractYouTubeVideoId(videoUrlInput);
+    if (!videoId) {
+      toast({ variant: "destructive", title: "Invalid URL", description: "Please enter a valid YouTube video URL." });
+      return;
     }
-  }, [isMounted, dataConnectConfigured, fetchVideos]);
 
+    const finalVideoName = videoNameInput.trim() || `Video: ${videoId}`;
 
-  const handleAddVideoPlaceholder = () => {
-    toast({
-      title: "Feature Not Implemented",
-      description: "Adding videos via Data Connect mutations can be implemented next.",
-    });
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await addDoc(collection(db, 'videos'), {
+        name: finalVideoName,
+        youtubeUrl: videoUrlInput,
+        videoId: videoId,
+        description: "",
+        createdAt: serverTimestamp(),
+      });
+      toast({
+        variant: "default",
+        className: "bg-green-100 dark:bg-green-900 border-green-400",
+        title: "Video Added",
+        description: `"${finalVideoName}" has been successfully added.`,
+      });
+      setVideoUrlInput("");
+      setVideoNameInput("");
+      fetchVideos(); // Refresh the list
+    } catch (err: any) {
+      console.error("[VideoHubPage] Error adding video to Firestore:", err);
+      setError(err.message);
+      toast({ variant: "destructive", title: "Error Adding Video", description: err.message });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDeleteVideoPlaceholder = (video: VideoDataClient) => {
-    setVideoToDelete(video);
-  };
-
-  const confirmDeletePlaceholder = async () => {
+  const confirmDelete = async () => {
     if (!videoToDelete) return;
-    toast({ title: "Deletion Not Implemented", description: `"${videoToDelete.name}" deletion via Data Connect is not yet implemented.` });
-    setVideoToDelete(null);
+    setIsSubmitting(true);
+    try {
+      await deleteDoc(doc(db, 'videos', videoToDelete.id));
+      toast({
+        title: "Video Deleted",
+        description: `"${videoToDelete.name}" has been removed.`,
+      });
+      fetchVideos(); // Refresh list
+    } catch (err: any) {
+        console.error("[VideoHubPage] Error deleting video from Firestore:", err);
+        toast({ variant: "destructive", title: "Error Deleting Video", description: err.message });
+    } finally {
+        setIsSubmitting(false);
+        setVideoToDelete(null);
+    }
   };
 
 
@@ -126,30 +149,11 @@ export default function VideoHubPage() {
     );
   }
 
-  // Enhanced error display
-  if (dataConnectError) {
-    return (
-       <div className="flex flex-col justify-center items-start h-full text-left p-8 bg-destructive/5 border border-destructive/20 rounded-lg max-w-4xl mx-auto my-8">
-        <div className="flex items-center gap-4 mb-4 w-full">
-          <AlertTriangle className="h-12 w-12 text-destructive flex-shrink-0" />
-          <div>
-            <h2 className="text-2xl font-semibold text-destructive">Connection Error</h2>
-            <p className="text-destructive/80">Could not connect to the Data Connect endpoint.</p>
-          </div>
-        </div>
-        <div className="text-sm space-y-2 whitespace-pre-wrap bg-background/50 p-4 rounded-md w-full font-mono border border-dashed border-destructive/30">
-          <p className="text-foreground font-sans font-bold">Error Details:</p>
-          <p className="text-muted-foreground">{dataConnectError}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
         <Youtube className="w-8 h-8 text-primary" />
-        Video Hub (Data Connect)
+        Video Hub (Firestore)
       </h1>
 
       <Card>
@@ -158,7 +162,6 @@ export default function VideoHubPage() {
             <LinkIcon className="w-6 h-6" />
             Add YouTube Video
           </CardTitle>
-           <CardDescription>This feature is not yet connected to a Data Connect mutation.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
@@ -166,18 +169,18 @@ export default function VideoHubPage() {
             placeholder="YouTube Video URL (e.g., https://www.youtube.com/watch?v=...)"
             value={videoUrlInput}
             onChange={(e) => setVideoUrlInput(e.target.value)}
-            disabled={true}
+            disabled={isSubmitting}
           />
           <Input
             type="text"
             placeholder="Optional: Custom Video Name"
             value={videoNameInput}
             onChange={(e) => setVideoNameInput(e.target.value)}
-            disabled={true}
+            disabled={isSubmitting}
           />
-          <Button onClick={handleAddVideoPlaceholder} className="w-full sm:w-auto" disabled={true}>
-            <Youtube className="mr-2 h-4 w-4" />
-            Add Video (Coming Soon)
+          <Button onClick={handleAddVideo} className="w-full sm:w-auto" disabled={isSubmitting || !videoUrlInput}>
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Youtube className="mr-2 h-4 w-4" />}
+            {isSubmitting ? "Adding..." : "Add Video"}
           </Button>
         </CardContent>
       </Card>
@@ -185,19 +188,26 @@ export default function VideoHubPage() {
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">My Videos</CardTitle>
-           {isLoadingVideos && (
+           {isLoading && (
             <div className="flex items-center text-sm text-muted-foreground py-10 justify-center">
               <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-              Loading videos from Data Connect...
+              Loading videos from Firestore...
             </div>
           )}
         </CardHeader>
         <CardContent>
-          {!isLoadingVideos && videos.length === 0 && (
+          {!isLoading && videos.length === 0 && !error && (
              <div className="text-center py-12 text-muted-foreground">
                 <Film className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-semibold">No Videos Found</p>
-                <p>Your database may be empty, or there was an issue fetching the data.</p>
+                <p className="text-lg font-semibold">No Videos Yet</p>
+                <p>Add your first video using the form above.</p>
+            </div>
+          )}
+          {!isLoading && error && (
+            <div className="text-center py-12 text-destructive">
+                <AlertTriangle className="w-16 h-16 mx-auto mb-4" />
+                <p className="text-lg font-semibold">Failed to Load Videos</p>
+                <p>{error}</p>
             </div>
           )}
           {videos.length > 0 && (
@@ -228,13 +238,13 @@ export default function VideoHubPage() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleDeleteVideoPlaceholder(video)}
+                      onClick={() => setVideoToDelete(video)}
                       className="w-full"
                       aria-label={`Delete ${video.name}`}
-                      disabled={true}
+                      disabled={isSubmitting}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
-                       Delete (Coming Soon)
+                       Delete
                     </Button>
                   </CardFooter>
                 </Card>
@@ -248,16 +258,16 @@ export default function VideoHubPage() {
         <AlertDialog open={!!videoToDelete} onOpenChange={(open) => !open && setVideoToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Confirm Deletion (Not Implemented)</AlertDialogTitle>
+              <AlertDialogTitle>Are you sure you want to delete this video?</AlertDialogTitle>
               <AlertDialogDescription>
-                Deleting videos via Data Connect is not yet implemented. Would you like to remove "{videoToDelete.name}"?
+                This will permanently remove "{videoToDelete.name}" from your collection. This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setVideoToDelete(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeletePlaceholder} disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Confirm
+              <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                {isSubmitting ? "Deleting..." : "Delete"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

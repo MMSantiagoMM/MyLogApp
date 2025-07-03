@@ -12,23 +12,23 @@ Welcome to "My Logic App"! This is a Next.js application designed to provide a s
     *   Resizable editor and panes for a comfortable coding experience.
 
 2.  **Video Hub (`/files`)**:
-    *   Add and manage a collection of YouTube video links.
+    *   Add, view, and manage a collection of YouTube video links.
     *   Embeds YouTube videos for direct playback on the page.
     *   Videos are displayed side-by-side in a responsive grid.
-    *   Data is saved locally in the browser.
+    *   Data is stored and retrieved from **Firebase Firestore**.
 
 3.  **Coding Exercises (`/exercises`)**:
     *   Create and attempt coding exercises.
     *   Exercises are defined using HTML for instructions and content.
     *   Includes an integrated Java editor (`JavaEditor.tsx` component) for solving Java-based problems.
     *   Manage exercises: create, edit, delete, and attempt.
-    *   Resizable instruction and editor panes.
+    *   Data is saved locally in the browser's localStorage.
 
 4.  **HTML Presenter (`/html-presenter`)**:
     *   An HTML editor with a live preview pane.
     *   Create, edit, and save HTML snippets or full pages.
     *   Useful for experimenting with HTML, CSS, and JavaScript.
-    *   Presentations are saved locally.
+    *   Presentations are saved locally in the browser's localStorage.
 
 5.  **Modern UI & UX**:
     *   Clean, responsive interface built with ShadCN UI components and Tailwind CSS.
@@ -39,6 +39,7 @@ Welcome to "My Logic App"! This is a Next.js application designed to provide a s
 
 *   **Framework**: Next.js (App Router)
 *   **Language**: TypeScript
+*   **Database**: Firebase Firestore (for Video Hub)
 *   **UI Components**: ShadCN UI
 *   **Styling**: Tailwind CSS
 *   **AI Functionality (Java Compiler Backend)**: Genkit (with Google AI/Gemini)
@@ -68,11 +69,22 @@ Welcome to "My Logic App"! This is a Next.js application designed to provide a s
     ```
 
 3.  **Environment Variables:**
-    *   This project uses Genkit for the Java compilation feature, which requires a Gemini API Key.
+    *   This project requires two sets of environment variables: one for Firebase services (client-side) and one for Genkit (server-side).
     *   Create a `.env` file in the root of the project.
-    *   Add your Gemini API key to the `.env` file:
+    *   **Firebase Keys:** Add your Firebase project's configuration to the `.env` file. You can get these from your Firebase project settings under "Your apps" -> "SDK setup and configuration" -> "Config".
         ```env
-        GEMINI_API_KEY=your_gemini_api_key_here
+        # Firebase SDK Keys
+        NEXT_PUBLIC_FIREBASE_API_KEY="your_api_key"
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your_auth_domain"
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID="your_project_id"
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your_storage_bucket"
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="your_messaging_sender_id"
+        NEXT_PUBLIC_FIREBASE_APP_ID="your_app_id"
+        ```
+    *   **Gemini API Key (for Genkit):** Add your Gemini API key for the Java compiler feature.
+        ```env
+        # Genkit / AI Keys
+        GEMINI_API_KEY="your_gemini_api_key_here"
         ```
     *   You can obtain a Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
 
@@ -80,10 +92,7 @@ Welcome to "My Logic App"! This is a Next.js application designed to provide a s
     *   In a separate terminal, start the Genkit development server:
         ```bash
         npm run genkit:dev
-        # or use genkit:watch for automatic reloading on changes to AI flows
-        # npm run genkit:watch
         ```
-    *   This server handles requests to the Genkit flows (e.g., `compileCode`).
 
 5.  **Run the Next.js development server:**
     *   In another terminal, start the Next.js application:
@@ -95,32 +104,11 @@ Welcome to "My Logic App"! This is a Next.js application designed to provide a s
 ## Project Structure Highlights
 
 *   `src/app/`: Contains the Next.js pages (App Router).
-    *   `editor/page.tsx`: Standalone Java Editor.
-    *   `exercises/page.tsx`: Coding exercises management and attempt views.
-    *   `files/page.tsx`: YouTube Video Hub.
-    *   `html-presenter/page.tsx`: HTML editor and live preview.
-    *   `layout.tsx`: Root layout of the application.
-    *   `page.tsx`: The homepage.
 *   `src/components/`: Reusable React components.
-    *   `AppShell.tsx`: Defines the main application layout including the sidebar and theme toggle.
-    *   `JavaEditor.tsx`: The core component for Java code editing, input, and output display, used in both `/editor` and `/exercises`.
-    *   `ui/`: ShadCN UI components (Accordion, Button, Card, etc.).
-*   `src/ai/`: Genkit related files.
-    *   `flows/compile-code.ts`: The Genkit flow responsible for the Java code compilation logic using a tool (currently simulated).
-    *   `genkit.ts`: Initializes and configures Genkit with the Google AI plugin.
-*   `src/lib/`: Utility functions, type definitions, and shared data.
-    *   `data.ts`: Defines interfaces like `VideoData` and `ExerciseItem`.
-    *   `youtubeUtils.ts`: Helper functions for processing YouTube URLs.
-    *   `utils.ts`: General utility functions like `cn` for class merging.
+*   `src/ai/`: Genkit related files for the Java compiler.
+*   `src/lib/`:
+    *   `firebase.ts`: Initializes the Firebase app and Firestore.
+    *   `data.ts`: Defines shared data interfaces like `Video`.
 *   `public/`: Static assets.
-*   `tailwind.config.ts`: Tailwind CSS configuration.
-*   `next.config.ts`: Next.js configuration.
-
-## How the Java Compiler Works
-
-The Java compilation feature (`/editor` and within `/exercises`) uses a Genkit flow (`src/ai/flows/compile-code.ts`).
-This flow defines a "tool" named `executeJavaCode`. In the current implementation, this tool simulates code execution. For a production environment, this tool would need to be integrated with a secure code execution service (e.g., JDoodle, a sandboxed Docker environment, or a custom microservice).
-
-The frontend sends the Java code and any user input to this Genkit flow, which then invokes the tool and returns the output.
 
 ---
