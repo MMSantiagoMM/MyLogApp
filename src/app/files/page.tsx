@@ -62,11 +62,16 @@ export default function VideoHubPage() {
       console.log("[VideoHubPage] Successfully fetched videos:", videosList.length);
     } catch (err: any) {
       console.error("[VideoHubPage] Error fetching videos from Firestore:", err);
-      setError(err.message || "Could not load videos. Please check your Firestore connection and rules.");
+      let userFriendlyError = err.message || "An unknown error occurred.";
+      // Check for specific Firestore permission error code
+      if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes("permission"))) {
+          userFriendlyError = "Firestore Security Rules are blocking access. Please update your Firestore rules in the Firebase Console to allow read/write operations for development. See the instructions in the chat for the solution.";
+      }
+      setError(userFriendlyError);
       toast({
         variant: "destructive",
-        title: "Error Loading Videos",
-        description: err.message,
+        title: "Permission Error",
+        description: userFriendlyError,
       });
     } finally {
       setIsLoading(false);
@@ -207,7 +212,7 @@ export default function VideoHubPage() {
             <div className="text-center py-12 text-destructive">
                 <AlertTriangle className="w-16 h-16 mx-auto mb-4" />
                 <p className="text-lg font-semibold">Failed to Load Videos</p>
-                <p>{error}</p>
+                <p className="max-w-md mx-auto">{error}</p>
             </div>
           )}
           {videos.length > 0 && (
