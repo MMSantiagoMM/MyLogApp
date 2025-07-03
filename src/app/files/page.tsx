@@ -25,13 +25,13 @@ const DATA_CONNECT_ENDPOINT_CLIENT_CHECK = process.env.NEXT_PUBLIC_DATA_CONNECT_
 
 export default function VideoHubPage() {
   const [videos, setVideos] = useState<VideoDataClient[]>([]);
-  const [videoUrlInput, setVideoUrlInput] = useState<string>(""); // For adding new video (currently UI only)
-  const [videoNameInput, setVideoNameInput] = useState<string>(""); // For adding new video (currently UI only)
+  const [videoUrlInput, setVideoUrlInput] = useState<string>("");
+  const [videoNameInput, setVideoNameInput] = useState<string>("");
   
   const [isLoadingVideos, setIsLoadingVideos] = useState<boolean>(true);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // For future add/delete ops
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [videoToDelete, setVideoToDelete] = useState<VideoDataClient | null>(null); // For future delete ops
+  const [videoToDelete, setVideoToDelete] = useState<VideoDataClient | null>(null);
   const { toast } = useToast();
 
   const [dataConnectConfigured, setDataConnectConfigured] = useState(false);
@@ -39,9 +39,9 @@ export default function VideoHubPage() {
 
   const fetchVideos = useCallback(async () => {
     if (!dataConnectConfigured) {
-        console.warn("[VideoHubPage] Data Connect not configured, skipping fetchVideos.");
-        setIsLoadingVideos(false);
-        return;
+      console.warn("[VideoHubPage] Data Connect not configured, skipping fetchVideos.");
+      setIsLoadingVideos(false);
+      return;
     }
     setIsLoadingVideos(true);
     setDataConnectError(null);
@@ -56,11 +56,11 @@ export default function VideoHubPage() {
             id: dcVideo.id,
             name: dcVideo.title,
             youtubeUrl: dcVideo.url,
-            videoId: videoId || "INVALID_URL", // Handle cases where ID extraction fails
+            videoId: videoId || "INVALID_URL",
             description: dcVideo.description,
             addedDate: new Date(dcVideo.createdAt).toISOString(),
           };
-        }).filter(video => video.videoId !== "INVALID_URL"); // Filter out videos with bad URLs
+        }).filter(video => video.videoId !== "INVALID_URL");
 
         transformedVideos.sort((a, b) => new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime());
         setVideos(transformedVideos);
@@ -71,30 +71,22 @@ export default function VideoHubPage() {
       }
     } catch (error: any) {
       console.error("[VideoHubPage] Error fetching videos via Data Connect:", error);
-      setDataConnectError(error.message || "Could not load videos from Data Connect.");
-      toast({
-        variant: "destructive",
-        title: "Error Loading Videos",
-        description: error.message || "Could not load videos from Data Connect.",
-      });
+      setDataConnectError(error.message || "An unknown error occurred while fetching videos.");
       setVideos([]);
     } finally {
       setIsLoadingVideos(false);
     }
-  }, [toast, dataConnectConfigured]);
+  }, [dataConnectConfigured]);
 
   useEffect(() => {
     setIsMounted(true);
-    console.log("[VideoHubPage] Checking Data Connect endpoint:", DATA_CONNECT_ENDPOINT_CLIENT_CHECK);
     if (DATA_CONNECT_ENDPOINT_CLIENT_CHECK && 
-        !DATA_CONNECT_ENDPOINT_CLIENT_CHECK.includes("YOUR_CONNECTOR_ID") &&
-        !DATA_CONNECT_ENDPOINT_CLIENT_CHECK.includes("your-connector-id")) {
+        !DATA_CONNECT_ENDPOINT_CLIENT_CHECK.includes("YOUR_CONNECTOR_ID")) {
       setDataConnectConfigured(true);
-      console.log("[VideoHubPage] Data Connect endpoint appears configured.");
     } else {
       setDataConnectConfigured(false);
-      setIsLoadingVideos(false); // Don't show loading if not configured
-      const errorMsg = "Firebase Data Connect endpoint (NEXT_PUBLIC_DATA_CONNECT_ENDPOINT) is not correctly set in your .env file. Please include your Connector ID and restart the server.";
+      setIsLoadingVideos(false);
+      const errorMsg = "Firebase Data Connect endpoint is not correctly set. Please set your Connector ID in the NEXT_PUBLIC_DATA_CONNECT_ENDPOINT variable in your .env file and restart the server.";
       console.error(`[VideoHubPage] ${errorMsg}`);
       setDataConnectError(errorMsg);
     }
@@ -109,26 +101,18 @@ export default function VideoHubPage() {
 
   const handleAddVideoPlaceholder = () => {
     toast({
-      title: "Feature Coming Soon",
-      description: "Adding videos via Data Connect will be implemented shortly.",
+      title: "Feature Not Implemented",
+      description: "Adding videos via Data Connect mutations can be implemented next.",
     });
   };
 
   const handleDeleteVideoPlaceholder = (video: VideoDataClient) => {
-    setVideoToDelete(video); // This will open the dialog
-     toast({
-      title: "Feature Coming Soon",
-      description: "Deleting videos via Data Connect will be implemented shortly.",
-    });
-    // Actual deletion logic would go here once mutations are set up
-    // For now, just close the dialog or provide feedback
-    // setVideoToDelete(null); 
+    setVideoToDelete(video);
   };
 
   const confirmDeletePlaceholder = async () => {
     if (!videoToDelete) return;
-    // Placeholder for future delete logic
-    toast({ title: "Deletion Pending", description: `"${videoToDelete.name}" deletion via Data Connect is not yet implemented.` });
+    toast({ title: "Deletion Not Implemented", description: `"${videoToDelete.name}" deletion via Data Connect is not yet implemented.` });
     setVideoToDelete(null);
   };
 
@@ -142,17 +126,21 @@ export default function VideoHubPage() {
     );
   }
 
-  if (!dataConnectConfigured || dataConnectError) {
+  // Enhanced error display
+  if (dataConnectError) {
     return (
-       <div className="flex flex-col justify-center items-center h-full text-center p-8">
-        <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
-        <h2 className="text-2xl font-semibold mb-2">Configuration Error</h2>
-        <p className="text-muted-foreground">
-          {dataConnectError || "Firebase Data Connect is not properly configured."}
-        </p>
-        <p className="text-muted-foreground mt-1">
-          Please ensure the <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">NEXT_PUBLIC_DATA_CONNECT_ENDPOINT</code> is correctly set in your server's <code className="bg-muted px-1 py-0.5 rounded-sm text-sm">.env</code> file, includes your Connector ID, and that you've restarted the Next.js server.
-        </p>
+       <div className="flex flex-col justify-center items-start h-full text-left p-8 bg-destructive/5 border border-destructive/20 rounded-lg max-w-4xl mx-auto my-8">
+        <div className="flex items-center gap-4 mb-4 w-full">
+          <AlertTriangle className="h-12 w-12 text-destructive flex-shrink-0" />
+          <div>
+            <h2 className="text-2xl font-semibold text-destructive">Connection Error</h2>
+            <p className="text-destructive/80">Could not connect to the Data Connect endpoint.</p>
+          </div>
+        </div>
+        <div className="text-sm space-y-2 whitespace-pre-wrap bg-background/50 p-4 rounded-md w-full font-mono border border-dashed border-destructive/30">
+          <p className="text-foreground font-sans font-bold">Error Details:</p>
+          <p className="text-muted-foreground">{dataConnectError}</p>
+        </div>
       </div>
     );
   }
@@ -168,8 +156,9 @@ export default function VideoHubPage() {
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <LinkIcon className="w-6 h-6" />
-            Add YouTube Video (Placeholder)
+            Add YouTube Video
           </CardTitle>
+           <CardDescription>This feature is not yet connected to a Data Connect mutation.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
@@ -177,14 +166,14 @@ export default function VideoHubPage() {
             placeholder="YouTube Video URL (e.g., https://www.youtube.com/watch?v=...)"
             value={videoUrlInput}
             onChange={(e) => setVideoUrlInput(e.target.value)}
-            disabled={true} // Disabled until add mutation is implemented
+            disabled={true}
           />
           <Input
             type="text"
             placeholder="Optional: Custom Video Name"
             value={videoNameInput}
             onChange={(e) => setVideoNameInput(e.target.value)}
-            disabled={true} // Disabled until add mutation is implemented
+            disabled={true}
           />
           <Button onClick={handleAddVideoPlaceholder} className="w-full sm:w-auto" disabled={true}>
             <Youtube className="mr-2 h-4 w-4" />
@@ -204,18 +193,11 @@ export default function VideoHubPage() {
           )}
         </CardHeader>
         <CardContent>
-          {!isLoadingVideos && videos.length === 0 && !dataConnectError && (
+          {!isLoadingVideos && videos.length === 0 && (
              <div className="text-center py-12 text-muted-foreground">
                 <Film className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-semibold">No Videos Yet</p>
-                <p>Add some videos using the form above (once implemented).</p>
-            </div>
-          )}
-          {!isLoadingVideos && dataConnectError && (
-            <div className="text-center py-12 text-destructive">
-                <AlertTriangle className="w-16 h-16 mx-auto mb-4" />
-                <p className="text-lg font-semibold">Failed to Load Videos</p>
-                <p>{dataConnectError}</p>
+                <p className="text-lg font-semibold">No Videos Found</p>
+                <p>Your database may be empty, or there was an issue fetching the data.</p>
             </div>
           )}
           {videos.length > 0 && (
@@ -249,7 +231,7 @@ export default function VideoHubPage() {
                       onClick={() => handleDeleteVideoPlaceholder(video)}
                       className="w-full"
                       aria-label={`Delete ${video.name}`}
-                      disabled={true} // Disabled until delete mutation is implemented
+                      disabled={true}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                        Delete (Coming Soon)
@@ -266,17 +248,16 @@ export default function VideoHubPage() {
         <AlertDialog open={!!videoToDelete} onOpenChange={(open) => !open && setVideoToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Confirm Deletion (Placeholder)</AlertDialogTitle>
+              <AlertDialogTitle>Confirm Deletion (Not Implemented)</AlertDialogTitle>
               <AlertDialogDescription>
-                Deleting videos via Data Connect is not yet implemented. This dialog is a placeholder.
-                Would you like to remove "{videoToDelete.name}" from the list?
+                Deleting videos via Data Connect is not yet implemented. Would you like to remove "{videoToDelete.name}"?
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setVideoToDelete(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={confirmDeletePlaceholder} disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Confirm (Placeholder)
+                Confirm
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
