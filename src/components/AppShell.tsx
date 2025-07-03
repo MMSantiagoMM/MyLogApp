@@ -32,6 +32,7 @@ import {
     LogOut,
     Loader2
 } from "lucide-react";
+import { Badge } from "./ui/badge";
 
 // Simple theme toggle (conceptual, full implementation requires theme context)
 const ThemeToggle = () => {
@@ -85,7 +86,7 @@ const NavItem = ({ href, icon: Icon, label }: { href: string; icon: React.Elemen
 };
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, loading, logout } = useAuth();
+  const { user, userData, loading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -156,12 +157,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <SidebarFooter className="p-2">
             <Separator className="my-2" />
              <div className="flex items-center justify-between p-2 group-data-[collapsible=icon]:justify-center">
-              <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
+              <div className="flex items-center gap-3 group-data-[collapsible=icon]:hidden">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>{user.email ? user.email.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
                 </Avatar>
-                <div className="text-sm">
+                <div className="text-sm flex flex-col">
                   <p className="font-medium text-foreground truncate max-w-[120px]" title={user.email ?? ''}>{user.email}</p>
+                  {userData?.role && (
+                    <Badge variant="secondary" className="capitalize w-fit text-xs px-1.5 py-0">
+                      {userData.role}
+                    </Badge>
+                  )}
                 </div>
               </div>
               <div className="flex items-center">

@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
 import type { ExerciseItem } from '@/lib/data';
+import { useAuth } from '@/context/AuthContext';
 
 const defaultExerciseHtmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -54,6 +55,9 @@ const defaultExerciseHtmlContent = `<!DOCTYPE html>
 type InstructionPanelState = 'hidden' | 'small' | 'medium';
 
 export default function ExercisesPage() {
+  const { userData } = useAuth();
+  const isProfesor = userData?.role === 'profesor';
+
   const [exercises, setExercises] = useState<ExerciseItem[]>([]);
   const [view, setView] = useState<'list' | 'edit' | 'create' | 'attempt'>('list');
   const [currentEditingExercise, setCurrentEditingExercise] = useState<ExerciseItem | null>(null);
@@ -93,7 +97,7 @@ export default function ExercisesPage() {
     } catch (err: any) {
       console.error("Error fetching exercises:", err);
       let userFriendlyError = "Could not load exercises. " + (err.message || "");
-      if (err.code === 'permission-denied') {
+      if (err.code === 'permission-denied' || err.code === 'PERMISSION_DENIED') {
           userFriendlyError = "Firestore Security Rules are blocking access. Please update your Firestore rules in the Firebase Console.";
       }
       setError(userFriendlyError);
@@ -125,6 +129,7 @@ export default function ExercisesPage() {
 
 
   const handleCreateNewClick = () => {
+    if (!isProfesor) return;
     setCurrentEditingExercise(null);
     setCurrentAttemptingExercise(null);
     setEditingTitle("New Exercise");
@@ -133,6 +138,7 @@ export default function ExercisesPage() {
   };
 
   const handleEditClick = (exercise: ExerciseItem) => {
+    if (!isProfesor) return;
     setCurrentEditingExercise(exercise);
     setCurrentAttemptingExercise(null);
     setEditingTitle(exercise.title);
@@ -148,6 +154,7 @@ export default function ExercisesPage() {
   };
 
   const handleSaveExercise = async () => {
+    if (!isProfesor) return;
     if (!editingTitle.trim()) {
       toast({ variant: "destructive", title: "Title cannot be empty."}); 
       return;
@@ -182,7 +189,7 @@ export default function ExercisesPage() {
   };
 
   const confirmDelete = async () => {
-    if (!exerciseToDelete) return;
+    if (!exerciseToDelete || !isProfesor) return;
     setIsSubmitting(true);
     try {
       await deleteDoc(doc(db, 'exercises', exerciseToDelete.id));
@@ -255,12 +262,14 @@ export default function ExercisesPage() {
           </h1>
           <CardDescription>Create, manage, and attempt your HTML-based exercises.</CardDescription>
         </div>
-        <div className="flex justify-end">
-          <Button onClick={handleCreateNewClick}>
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Create New Exercise
-          </Button>
-        </div>
+        {isProfesor && (
+          <div className="flex justify-end">
+            <Button onClick={handleCreateNewClick}>
+              <PlusCircle className="mr-2 h-5 w-5" />
+              Create New Exercise
+            </Button>
+          </div>
+        )}
 
         {isLoading && (
             <div className="flex items-center text-lg text-muted-foreground py-10 justify-center">
@@ -284,7 +293,7 @@ export default function ExercisesPage() {
               <CardTitle>No Exercises Created Yet</CardTitle>
             </CardHeader>
             <CardContent>
-              <CardDescription>Click "Create New Exercise" to add your first one.</CardDescription>
+              <CardDescription>{isProfesor ? 'Click "Create New Exercise" to add your first one.' : 'No exercises are available at the moment.'}</CardDescription>
             </CardContent>
           </Card>
         )} 
@@ -323,33 +332,37 @@ export default function ExercisesPage() {
                   <Button variant="outline" size="sm" onClick={() => handleExpandExercise(exercise.htmlContent)} disabled={isSubmitting}>
                     <Expand className="mr-1 h-4 w-4" /> Expand
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleEditClick(exercise)} disabled={isSubmitting}>
-                    <Edit3 className="mr-1 h-4 w-4" /> Edit
-                  </Button>
-                  <AlertDialog onOpenChange={(open) => !open && setExerciseToDelete(null)}>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" onClick={() => setExerciseToDelete(exercise)} disabled={isSubmitting}>
-                        <Trash2 className="mr-1 h-4 w-4" /> Delete
+                  {isProfesor && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => handleEditClick(exercise)} disabled={isSubmitting}>
+                        <Edit3 className="mr-1 h-4 w-4" /> Edit
                       </Button>
-                    </AlertDialogTrigger>
-                    {exerciseToDelete?.id === exercise.id && (
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the exercise titled "{exercise.title}".
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel onClick={() => setExerciseToDelete(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting}>
-                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    )}
-                  </AlertDialog>
+                      <AlertDialog onOpenChange={(open) => !open && setExerciseToDelete(null)}>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm" onClick={() => setExerciseToDelete(exercise)} disabled={isSubmitting}>
+                            <Trash2 className="mr-1 h-4 w-4" /> Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        {exerciseToDelete?.id === exercise.id && (
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the exercise titled "{exercise.title}".
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={() => setExerciseToDelete(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        )}
+                      </AlertDialog>
+                    </>
+                  )}
                 </CardFooter>
               </Card>
             ))}
@@ -426,7 +439,7 @@ export default function ExercisesPage() {
           {view === 'create' ? 'Create New Exercise' : `Edit Exercise: ${currentEditingExercise?.title || ''}`}
         </h1>
         <div className="flex gap-2 flex-wrap">
-           <Button onClick={handleSaveExercise} disabled={isSubmitting}>
+           <Button onClick={handleSaveExercise} disabled={isSubmitting || !isProfesor}>
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             {isSubmitting ? "Saving..." : "Save Exercise"}
           </Button>
@@ -442,7 +455,7 @@ export default function ExercisesPage() {
         value={editingTitle}
         onChange={(e) => setEditingTitle(e.target.value)}
         className="text-lg font-semibold" 
-        disabled={isSubmitting}
+        disabled={isSubmitting || !isProfesor}
       />
 
       <div className="grid md:grid-cols-2 gap-8 h-[calc(100vh-20rem)] md:h-[calc(100vh-18rem)]">
@@ -469,7 +482,7 @@ export default function ExercisesPage() {
                   scrollBeyondLastLine: false,
                   automaticLayout: true,
                 }}
-              />
+                />
             </div>
           </CardContent>
         </Card>

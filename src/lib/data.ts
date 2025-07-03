@@ -1,3 +1,4 @@
+
 // src/lib/data.ts
 import type { Timestamp } from "firebase/firestore";
 
@@ -34,4 +35,12 @@ export interface HtmlPresenterItem {
   title: string;
   htmlContent: string;
   createdAt: string;
+}
+
+// Represents a user's profile data stored in Firestore, including their role.
+export interface UserData {
+  uid: string;
+  email: string | null;
+  role: 'profesor' | 'estudiante';
+  createdAt: Timestamp;
 }

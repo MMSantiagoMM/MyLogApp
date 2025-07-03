@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { Video, VideoDataClient } from '@/lib/data';
+import type { VideoDataClient } from '@/lib/data';
 import { extractYouTubeVideoId } from '@/lib/youtubeUtils';
 import { Youtube, Link as LinkIcon, Trash2, Film, AlertTriangle, Loader2, CheckCircle } from "lucide-react";
 import {
@@ -19,11 +19,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from '@/context/AuthContext';
 
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
 
 export default function VideoHubPage() {
+  const { userData } = useAuth();
+  const isProfesor = userData?.role === 'profesor';
+
   const [videos, setVideos] = useState<VideoDataClient[]>([]);
   const [videoUrlInput, setVideoUrlInput] = useState<string>("");
   const [videoNameInput, setVideoNameInput] = useState<string>("");
@@ -46,7 +50,7 @@ export default function VideoHubPage() {
       const videoSnapshot = await getDocs(q);
 
       const videosList = videoSnapshot.docs.map(doc => {
-        const data = doc.data() as Omit<Video, 'id'>;
+        const data = doc.data();
         return {
           id: doc.id,
           name: data.name,
@@ -63,8 +67,7 @@ export default function VideoHubPage() {
     } catch (err: any) {
       console.error("[VideoHubPage] Error fetching videos from Firestore:", err);
       let userFriendlyError = err.message || "An unknown error occurred.";
-      // Check for specific Firestore permission error code
-      if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes("permission"))) {
+      if (err.code === 'permission-denied' || err.code === 'PERMISSION_DENIED') {
           userFriendlyError = "Firestore Security Rules are blocking access. Please update your Firestore rules in the Firebase Console to allow read/write operations for development. See the instructions in the chat for the solution.";
       }
       setError(userFriendlyError);
@@ -89,6 +92,8 @@ export default function VideoHubPage() {
   }, [fetchVideos]);
 
   const handleAddVideo = async () => {
+    if (!isProfesor) return;
+
     const videoId = extractYouTubeVideoId(videoUrlInput);
     if (!videoId) {
       toast({ variant: "destructive", title: "Invalid URL", description: "Please enter a valid YouTube video URL." });
@@ -126,7 +131,7 @@ export default function VideoHubPage() {
   };
 
   const confirmDelete = async () => {
-    if (!videoToDelete) return;
+    if (!videoToDelete || !isProfesor) return;
     setIsSubmitting(true);
     try {
       await deleteDoc(doc(db, 'videos', videoToDelete.id));
@@ -158,37 +163,39 @@ export default function VideoHubPage() {
     <div className="space-y-8">
       <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
         <Youtube className="w-8 h-8 text-primary" />
-        Video Hub (Firestore)
+        Video Hub
       </h1>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-headline flex items-center gap-2">
-            <LinkIcon className="w-6 h-6" />
-            Add YouTube Video
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Input
-            type="url"
-            placeholder="YouTube Video URL (e.g., https://www.youtube.com/watch?v=...)"
-            value={videoUrlInput}
-            onChange={(e) => setVideoUrlInput(e.target.value)}
-            disabled={isSubmitting}
-          />
-          <Input
-            type="text"
-            placeholder="Optional: Custom Video Name"
-            value={videoNameInput}
-            onChange={(e) => setVideoNameInput(e.target.value)}
-            disabled={isSubmitting}
-          />
-          <Button onClick={handleAddVideo} className="w-full sm:w-auto" disabled={isSubmitting || !videoUrlInput}>
-            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Youtube className="mr-2 h-4 w-4" />}
-            {isSubmitting ? "Adding..." : "Add Video"}
-          </Button>
-        </CardContent>
-      </Card>
+      {isProfesor && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline flex items-center gap-2">
+              <LinkIcon className="w-6 h-6" />
+              Add YouTube Video
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Input
+              type="url"
+              placeholder="YouTube Video URL (e.g., https://www.youtube.com/watch?v=...)"
+              value={videoUrlInput}
+              onChange={(e) => setVideoUrlInput(e.target.value)}
+              disabled={isSubmitting}
+            />
+            <Input
+              type="text"
+              placeholder="Optional: Custom Video Name"
+              value={videoNameInput}
+              onChange={(e) => setVideoNameInput(e.target.value)}
+              disabled={isSubmitting}
+            />
+            <Button onClick={handleAddVideo} className="w-full sm:w-auto" disabled={isSubmitting || !videoUrlInput}>
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Youtube className="mr-2 h-4 w-4" />}
+              {isSubmitting ? "Adding..." : "Add Video"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -205,7 +212,7 @@ export default function VideoHubPage() {
              <div className="text-center py-12 text-muted-foreground">
                 <Film className="w-16 h-16 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-semibold">No Videos Yet</p>
-                <p>Add your first video using the form above.</p>
+                <p>{isProfesor ? 'Add your first video using the form above.' : 'No videos have been added yet.'}</p>
             </div>
           )}
           {!isLoading && error && (
@@ -239,45 +246,46 @@ export default function VideoHubPage() {
                       className="block"
                     ></iframe>
                   </CardContent>
-                  <CardFooter className="p-3">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setVideoToDelete(video)}
-                      className="w-full"
-                      aria-label={`Delete ${video.name}`}
-                      disabled={isSubmitting}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                       Delete
-                    </Button>
-                  </CardFooter>
+                  {isProfesor && (
+                    <CardFooter className="p-3">
+                      <AlertDialog open={videoToDelete?.id === video.id} onOpenChange={(open) => !open && setVideoToDelete(null)}>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setVideoToDelete(video)}
+                            className="w-full"
+                            aria-label={`Delete ${video.name}`}
+                            disabled={isSubmitting}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure you want to delete this video?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently remove "{videoToDelete?.name}" from your collection. This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setVideoToDelete(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting}>
+                              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                              {isSubmitting ? "Deleting..." : "Delete"}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </CardFooter>
+                  )}
                 </Card>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
-
-      {videoToDelete && (
-        <AlertDialog open={!!videoToDelete} onOpenChange={(open) => !open && setVideoToDelete(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure you want to delete this video?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently remove "{videoToDelete.name}" from your collection. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setVideoToDelete(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                {isSubmitting ? "Deleting..." : "Delete"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
     </div>
   );
 }
