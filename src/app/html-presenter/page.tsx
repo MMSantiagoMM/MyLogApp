@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -285,34 +284,34 @@ export default function HtmlPresenterPage() {
                   <Button variant="outline" size="sm" onClick={() => handleEditClick(presenter)} disabled={isSubmitting}>
                     <Edit3 className="mr-1 h-4 w-4" /> Edit
                   </Button>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" onClick={() => setPresenterToDelete(presenter)} disabled={isSubmitting}>
-                      <Trash2 className="mr-1 h-4 w-4" /> Delete
-                    </Button>
-                  </AlertDialogTrigger>
+                  <AlertDialog onOpenChange={(open) => !open && setPresenterToDelete(null)}>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" onClick={() => setPresenterToDelete(presenter)} disabled={isSubmitting}>
+                        <Trash2 className="mr-1 h-4 w-4" /> Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    {presenterToDelete?.id === presenter.id && (
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the presenter titled "{presenterToDelete.title}".
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={() => setPresenterToDelete(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    )}
+                  </AlertDialog>
                 </CardFooter>
               </Card>
             ))}
           </div>
-        )}
-        {presenterToDelete && (
-          <AlertDialog open={!!presenterToDelete} onOpenChange={(open) => !open && setPresenterToDelete(null)}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the presenter titled "{presenterToDelete.title}".
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setPresenterToDelete(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         )}
       </div>
     );
