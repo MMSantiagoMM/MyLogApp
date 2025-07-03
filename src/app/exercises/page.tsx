@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import Editor from "@monaco-editor/react";
 import { 
   BookMarked, CodeXml, MonitorPlay, Loader2, PlusCircle, Edit3, Trash2, Save, XCircle, FileText, Expand, PlayCircle, ArrowLeft,
-  PanelLeftClose, PanelLeftOpen, ArrowRightLeft
+  PanelLeftClose, PanelLeftOpen, ArrowRightLeft, AlertTriangle
 } from "lucide-react";
 import {
   AlertDialog,
@@ -23,6 +23,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import JavaEditor from '@/components/JavaEditor'; 
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { db } from '@/lib/firebase';
+import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
+import type { ExerciseItem } from '@/lib/data';
 
 const defaultExerciseHtmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -47,14 +51,6 @@ const defaultExerciseHtmlContent = `<!DOCTYPE html>
 </body>
 </html>`;
 
-interface ExerciseItem {
-  id: string;
-  title: string;
-  htmlContent: string;
-  createdAt: string;
-}
-
-const LOCAL_STORAGE_KEY = "htmlExercisesList_v1"; 
 type InstructionPanelState = 'hidden' | 'small' | 'medium';
 
 export default function ExercisesPage() {
@@ -67,49 +63,66 @@ export default function ExercisesPage() {
   const [editingHtmlContent, setEditingHtmlContent] = useState<string>(defaultExerciseHtmlContent);
 
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const [editorTheme, setEditorTheme] = useState('vs-light');
-  const [exerciseToDelete, setExerciseToDelete] = useState<string | null>(null);
+  const [exerciseToDelete, setExerciseToDelete] = useState<ExerciseItem | null>(null);
   const [instructionPanelState, setInstructionPanelState] = useState<InstructionPanelState>('small');
+  const { toast } = useToast();
 
+  const fetchExercises = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const exercisesCollection = collection(db, 'exercises');
+      const q = query(exercisesCollection, orderBy('createdAt', 'desc'));
+      const exerciseSnapshot = await getDocs(q);
+
+      const exerciseList = exerciseSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          title: data.title,
+          htmlContent: data.htmlContent,
+          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
+        };
+      });
+      setExercises(exerciseList);
+    } catch (err: any) {
+      console.error("Error fetching exercises:", err);
+      let userFriendlyError = "Could not load exercises. " + (err.message || "");
+      if (err.code === 'permission-denied') {
+          userFriendlyError = "Firestore Security Rules are blocking access. Please update your Firestore rules in the Firebase Console.";
+      }
+      setError(userFriendlyError);
+      toast({ variant: "destructive", title: "Error", description: userFriendlyError });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     setIsMounted(true);
-    try {
-      const savedExercises = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (savedExercises) {
-        setExercises(JSON.parse(savedExercises));
-      }
-    } catch (error) {
-      console.error("Failed to load exercises from localStorage:", error);
-      setExercises([]); 
+    if (db) {
+        fetchExercises();
+    } else {
+        setError("Firebase Firestore is not initialized. Check your configuration.");
+        setIsLoading(false);
     }
 
     const updateTheme = () => {
-      if (document.documentElement.classList.contains('dark')) {
-        setEditorTheme('vs-dark');
-      } else {
-        setEditorTheme('vs-light');
-      }
+      setEditorTheme(document.documentElement.classList.contains('dark') ? 'vs-dark' : 'vs-light');
     };
     updateTheme(); 
 
     const observer = new MutationObserver(updateTheme);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
+    return () => observer.disconnect();
+  }, [fetchExercises]);
 
-  useEffect(() => {
-    if (isMounted) {
-      try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(exercises));
-      } catch (error) {
-        console.error("Failed to save exercises to localStorage:", error);
-      }
-    }
-  }, [exercises, isMounted]);
 
   const handleCreateNewClick = () => {
     setCurrentEditingExercise(null);
@@ -130,40 +143,58 @@ export default function ExercisesPage() {
   const handleAttemptClick = (exercise: ExerciseItem) => {
     setCurrentAttemptingExercise(exercise);
     setCurrentEditingExercise(null);
-    setInstructionPanelState('small'); // Reset to show instructions (small) when starting a new attempt
+    setInstructionPanelState('small'); 
     setView('attempt');
   };
 
-  const handleSaveExercise = () => {
+  const handleSaveExercise = async () => {
     if (!editingTitle.trim()) {
-      alert("Title cannot be empty."); 
+      toast({ variant: "destructive", title: "Title cannot be empty."}); 
       return;
     }
 
-    if (view === 'create') {
-      const newExercise: ExerciseItem = {
-        id: Date.now().toString(),
-        title: editingTitle,
-        htmlContent: editingHtmlContent,
-        createdAt: new Date().toISOString(),
-      };
-      setExercises(prev => [newExercise, ...prev]);
-    } else if (view === 'edit' && currentEditingExercise) {
-      setExercises(prev => 
-        prev.map(ex => 
-          ex.id === currentEditingExercise.id 
-            ? { ...ex, title: editingTitle, htmlContent: editingHtmlContent } 
-            : ex
-        )
-      );
+    setIsSubmitting(true);
+    try {
+      if (view === 'create') {
+        await addDoc(collection(db, 'exercises'), {
+          title: editingTitle,
+          htmlContent: editingHtmlContent,
+          createdAt: serverTimestamp(),
+        });
+        toast({ title: "Exercise Created", description: `"${editingTitle}" has been saved.` });
+      } else if (view === 'edit' && currentEditingExercise) {
+        const exerciseRef = doc(db, 'exercises', currentEditingExercise.id);
+        await updateDoc(exerciseRef, {
+          title: editingTitle,
+          htmlContent: editingHtmlContent,
+        });
+        toast({ title: "Exercise Updated", description: `"${editingTitle}" has been updated.` });
+      }
+      setView('list');
+      setCurrentEditingExercise(null);
+      fetchExercises(); // Refresh the list
+    } catch (err: any) {
+      console.error("Error saving exercise:", err);
+      toast({ variant: "destructive", title: "Error Saving Exercise", description: err.message });
+    } finally {
+      setIsSubmitting(false);
     }
-    setView('list');
-    setCurrentEditingExercise(null);
   };
 
-  const confirmDelete = (exerciseId: string) => {
-    setExercises(prev => prev.filter(ex => ex.id !== exerciseId));
-    setExerciseToDelete(null);
+  const confirmDelete = async () => {
+    if (!exerciseToDelete) return;
+    setIsSubmitting(true);
+    try {
+      await deleteDoc(doc(db, 'exercises', exerciseToDelete.id));
+      toast({ title: "Exercise Deleted", description: `"${exerciseToDelete.title}" has been removed.`});
+      fetchExercises();
+    } catch (err: any) {
+      console.error("Error deleting exercise:", err);
+      toast({ variant: "destructive", title: "Error Deleting Exercise", description: err.message });
+    } finally {
+      setIsSubmitting(false);
+      setExerciseToDelete(null);
+    }
   };
 
   const handleCancelEditCreateAttempt = () => {
@@ -189,7 +220,7 @@ export default function ExercisesPage() {
     setInstructionPanelState(prevState => {
       if (prevState === 'small') return 'medium';
       if (prevState === 'medium') return 'hidden';
-      return 'small'; // from 'hidden' to 'small'
+      return 'small'; 
     });
   };
 
@@ -231,7 +262,22 @@ export default function ExercisesPage() {
           </Button>
         </div>
 
-        {exercises.length === 0 ? (
+        {isLoading && (
+            <div className="flex items-center text-lg text-muted-foreground py-10 justify-center">
+                <Loader2 className="mr-3 h-8 w-8 animate-spin" />
+                Loading exercises from Firestore...
+            </div>
+        )}
+
+        {!isLoading && error && (
+            <div className="text-center py-12 text-destructive">
+                <AlertTriangle className="w-16 h-16 mx-auto mb-4" />
+                <p className="text-lg font-semibold">Failed to Load Exercises</p>
+                <p className="max-w-md mx-auto">{error}</p>
+            </div>
+        )}
+
+        {!isLoading && !error && exercises.length === 0 && (
           <Card className="text-center py-12">
             <CardHeader>
               <FileText className="w-16 h-16 mx-auto text-muted-foreground opacity-50 mb-4" />
@@ -241,9 +287,11 @@ export default function ExercisesPage() {
               <CardDescription>Click "Create New Exercise" to add your first one.</CardDescription>
             </CardContent>
           </Card>
-        ) : (
+        )} 
+        
+        {!isLoading && !error && exercises.length > 0 && (
           <div className="grid gap-8 md:grid-cols-2"> 
-            {exercises.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(exercise => (
+            {exercises.map(exercise => (
               <Card key={exercise.id} className="flex flex-col">
                 <CardHeader>
                   <CardTitle className="truncate">{exercise.title}</CardTitle>
@@ -269,22 +317,22 @@ export default function ExercisesPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-end gap-2 pt-4">
-                  <Button variant="default" size="sm" onClick={() => handleAttemptClick(exercise)}>
+                  <Button variant="default" size="sm" onClick={() => handleAttemptClick(exercise)} disabled={isSubmitting}>
                     <PlayCircle className="mr-1 h-4 w-4" /> Attempt
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleExpandExercise(exercise.htmlContent)}>
+                  <Button variant="outline" size="sm" onClick={() => handleExpandExercise(exercise.htmlContent)} disabled={isSubmitting}>
                     <Expand className="mr-1 h-4 w-4" /> Expand
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleEditClick(exercise)}>
+                  <Button variant="outline" size="sm" onClick={() => handleEditClick(exercise)} disabled={isSubmitting}>
                     <Edit3 className="mr-1 h-4 w-4" /> Edit
                   </Button>
-                  <AlertDialog>
+                  <AlertDialog onOpenChange={(open) => !open && setExerciseToDelete(null)}>
                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" onClick={() => setExerciseToDelete(exercise.id)}>
+                      <Button variant="destructive" size="sm" onClick={() => setExerciseToDelete(exercise)} disabled={isSubmitting}>
                         <Trash2 className="mr-1 h-4 w-4" /> Delete
                       </Button>
                     </AlertDialogTrigger>
-                    {exerciseToDelete === exercise.id && (
+                    {exerciseToDelete?.id === exercise.id && (
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -293,8 +341,9 @@ export default function ExercisesPage() {
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel onClick={() => setExerciseToDelete(null)}>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => confirmDelete(exercise.id)}>
+                          <AlertDialogCancel onClick={() => setExerciseToDelete(null)} disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                             Delete
                           </AlertDialogAction>
                         </AlertDialogFooter>
@@ -377,10 +426,11 @@ export default function ExercisesPage() {
           {view === 'create' ? 'Create New Exercise' : `Edit Exercise: ${currentEditingExercise?.title || ''}`}
         </h1>
         <div className="flex gap-2 flex-wrap">
-           <Button onClick={handleSaveExercise}>
-            <Save className="mr-2 h-4 w-4" /> Save Exercise
+           <Button onClick={handleSaveExercise} disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {isSubmitting ? "Saving..." : "Save Exercise"}
           </Button>
-          <Button variant="outline" onClick={handleCancelEditCreateAttempt}>
+          <Button variant="outline" onClick={handleCancelEditCreateAttempt} disabled={isSubmitting}>
             <XCircle className="mr-2 h-4 w-4" /> Cancel
           </Button>
         </div>
@@ -392,6 +442,7 @@ export default function ExercisesPage() {
         value={editingTitle}
         onChange={(e) => setEditingTitle(e.target.value)}
         className="text-lg font-semibold" 
+        disabled={isSubmitting}
       />
 
       <div className="grid md:grid-cols-2 gap-8 h-[calc(100vh-20rem)] md:h-[calc(100vh-18rem)]">
@@ -444,5 +495,3 @@ export default function ExercisesPage() {
     </div>
   );
 }
-
-    
