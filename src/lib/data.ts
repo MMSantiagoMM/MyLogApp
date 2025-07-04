@@ -87,14 +87,17 @@ export interface Evaluation {
   questions: Question[];
   assignedGroupIds: string[]; // array of group IDs
   createdAt: string; // ISO string
+  accessCode?: string; // Optional access code for the evaluation
 }
 
 export interface StudentSubmission {
   id: string; // firestore doc id
   studentId: string;
   studentName: string; 
+  studentIdNumber: string; // The student's ID number (e.g., DNI, Cédula)
   evaluationId: string;
   evaluationTopic: string;
+  groupId: string;
   submittedAt: string; // ISO string
   // A map of question ID to the selected answer ID
   selectedAnswers: Record<string, string>;
@@ -102,3 +105,5 @@ export interface StudentSubmission {
   totalQuestions: number;
   correctAnswersCount: number;
 }
+
+    

@@ -187,6 +187,10 @@ function StudentEvaluationsView() {
     const [currentEvaluation, setCurrentEvaluation] = useState<Evaluation | null>(null);
     const [currentSubmission, setCurrentSubmission] = useState<StudentSubmission | null>(null);
 
+    const [studentIdNumber, setStudentIdNumber] = useState('');
+    const [evaluationToStart, setEvaluationToStart] = useState<Evaluation | null>(null);
+    const [accessCodeInput, setAccessCodeInput] = useState('');
+
     const fetchStudentData = useCallback(async () => {
         if (!user) return;
         setIsLoading(true);
@@ -203,7 +207,7 @@ function StudentEvaluationsView() {
                         ...data,
                         startDate: (data.startDate as Timestamp).toDate().toISOString(),
                         endDate: (data.endDate as Timestamp).toDate().toISOString(),
-                        createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+                        createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                     } as Evaluation;
                 })
                 .filter(eva => isBefore(now, parseISO(eva.endDate)) && isAfter(now, parseISO(eva.startDate)));
@@ -241,11 +245,27 @@ function StudentEvaluationsView() {
         fetchStudentData();
     }, [fetchStudentData]);
 
-    const handleStartEvaluation = (evaluation: Evaluation) => {
-        setCurrentEvaluation(evaluation);
-        setView('take');
+    const handleOpenStartDialog = (evaluation: Evaluation) => {
+        setEvaluationToStart(evaluation);
+        setAccessCodeInput(''); // Reset code input each time
     };
-    
+
+    const handleConfirmStart = () => {
+        if (!evaluationToStart || !studentIdNumber.trim()) {
+            toast({ variant: 'destructive', title: 'Campo Requerido', description: 'Por favor, ingresa tu número de identificación.' });
+            return;
+        }
+
+        if (evaluationToStart.accessCode && evaluationToStart.accessCode.trim() !== accessCodeInput.trim()) {
+            toast({ variant: 'destructive', title: 'Código Incorrecto', description: 'El código de acceso no es válido para esta evaluación.' });
+            return;
+        }
+
+        setCurrentEvaluation(evaluationToStart);
+        setView('take');
+        setEvaluationToStart(null);
+    };
+
     const handleShowResult = (submission: StudentSubmission) => {
         setCurrentSubmission(submission);
         setView('result');
@@ -259,7 +279,7 @@ function StudentEvaluationsView() {
     };
 
     if (view === 'take' && currentEvaluation) {
-        return <TakeEvaluationForm evaluation={currentEvaluation} onFinished={handleBackToList} />;
+        return <TakeEvaluationForm evaluation={currentEvaluation} studentIdNumber={studentIdNumber} onFinished={handleBackToList} />;
     }
     
     if (view === 'result' && currentSubmission) {
@@ -290,7 +310,7 @@ function StudentEvaluationsView() {
                                             <CardDescription>{eva.questions.length} preguntas</CardDescription>
                                         </CardHeader>
                                         <CardFooter>
-                                            <Button className="w-full" onClick={() => handleStartEvaluation(eva)}>
+                                            <Button className="w-full" onClick={() => handleOpenStartDialog(eva)}>
                                                 <PlayCircle className="mr-2 h-4 w-4" /> Iniciar Evaluación
                                             </Button>
                                         </CardFooter>
@@ -322,6 +342,45 @@ function StudentEvaluationsView() {
                     )}
                 </>
             )}
+
+            <Dialog open={!!evaluationToStart} onOpenChange={(open) => !open && setEvaluationToStart(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Iniciar Evaluación: {evaluationToStart?.topic}</DialogTitle>
+                        <DialogDescription>
+                            Para continuar, completa los siguientes campos.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="student-id-number">Número de Identificación</Label>
+                            <Input
+                                id="student-id-number"
+                                value={studentIdNumber}
+                                onChange={(e) => setStudentIdNumber(e.target.value)}
+                                placeholder="Tu número de identificación"
+                                required
+                            />
+                        </div>
+                        {evaluationToStart?.accessCode && (
+                             <div className="space-y-2">
+                                <Label htmlFor="access-code">Código de Acceso</Label>
+                                <Input
+                                    id="access-code"
+                                    value={accessCodeInput}
+                                    onChange={(e) => setAccessCodeInput(e.target.value)}
+                                    placeholder="Código proporcionado por el profesor"
+                                    required
+                                />
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEvaluationToStart(null)}>Cancelar</Button>
+                        <Button onClick={handleConfirmStart}>Confirmar e Iniciar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
@@ -332,6 +391,7 @@ function EvaluationForm({ existingEvaluation, onFinished }: { existingEvaluation
     const { user } = useAuth();
     const { toast } = useToast();
     const [topic, setTopic] = useState(existingEvaluation?.topic || '');
+    const [accessCode, setAccessCode] = useState(existingEvaluation?.accessCode || '');
     const [startDate, setStartDate] = useState<Date | undefined>(existingEvaluation ? parseISO(existingEvaluation.startDate) : new Date());
     const [endDate, setEndDate] = useState<Date | undefined>(existingEvaluation ? parseISO(existingEvaluation.endDate) : undefined);
     const [questions, setQuestions] = useState<Question[]>(existingEvaluation?.questions || []);
@@ -399,6 +459,7 @@ function EvaluationForm({ existingEvaluation, onFinished }: { existingEvaluation
         const evaluationData = {
             profesorId: user.uid,
             topic,
+            accessCode: accessCode.trim(),
             startDate: Timestamp.fromDate(startDate),
             endDate: Timestamp.fromDate(endDate),
             questions,
@@ -442,12 +503,16 @@ function EvaluationForm({ existingEvaluation, onFinished }: { existingEvaluation
                 <CardHeader>
                     <CardTitle>Información General</CardTitle>
                 </CardHeader>
-                <CardContent className="grid md:grid-cols-3 gap-6">
-                    <div className="md:col-span-1 space-y-2">
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
                         <Label htmlFor="topic">Tema de la Evaluación</Label>
                         <Input id="topic" value={topic} onChange={e => setTopic(e.target.value)} placeholder="Ej: Fundamentos de Java" required/>
                     </div>
                      <div className="space-y-2">
+                        <Label htmlFor="access-code">Código de Acceso (Opcional)</Label>
+                        <Input id="access-code" value={accessCode} onChange={e => setAccessCode(e.target.value)} placeholder="Ej: JAVA2024" />
+                    </div>
+                    <div className="space-y-2">
                         <Label>Fecha de Inicio</Label>
                         <Popover>
                             <PopoverTrigger asChild>
@@ -603,7 +668,7 @@ function AssignGroupsDialog({ evaluation, onAssigned }: { evaluation: Evaluation
 
 
 // Form for student to take an evaluation
-function TakeEvaluationForm({ evaluation, onFinished }: { evaluation: Evaluation, onFinished: () => void }) {
+function TakeEvaluationForm({ evaluation, onFinished, studentIdNumber }: { evaluation: Evaluation, onFinished: () => void, studentIdNumber: string }) {
     const { user, userData } = useAuth();
     const { toast } = useToast();
     const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
@@ -636,6 +701,7 @@ function TakeEvaluationForm({ evaluation, onFinished }: { evaluation: Evaluation
         const submissionData: Omit<StudentSubmission, 'id' | 'submittedAt'> = {
             studentId: user.uid,
             studentName: userData.email || 'Estudiante Anónimo',
+            studentIdNumber: studentIdNumber,
             evaluationId: evaluation.id,
             evaluationTopic: evaluation.topic,
             groupId: '', // This needs a proper way to be identified in the future
