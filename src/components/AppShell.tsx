@@ -33,7 +33,7 @@ import {
     BookCheck,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { LanguageSwitcher } from "./LanguageSwitcher";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Link, useRouter } from "@/navigation";
 
 // Simple theme toggle (conceptual, full implementation requires theme context)
@@ -138,7 +138,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   
   // If user is authenticated, render the full shell
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen bg-background">
         <Sidebar collapsible="icon" variant="sidebar" className="border-r">
           <SidebarHeader className="flex items-center justify-between p-3">
@@ -148,7 +148,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 My Logic App
               </span>
             </Link>
-            <SidebarTrigger />
+            <SidebarTrigger className="md:hidden" />
           </SidebarHeader>
           <SidebarContent className="flex-1 overflow-y-auto p-2">
             <SidebarMenu>
