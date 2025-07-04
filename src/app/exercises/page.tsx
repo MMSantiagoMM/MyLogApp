@@ -29,28 +29,9 @@ import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, serverTimestamp
 import type { ExerciseItem } from '@/lib/data';
 import { useAuth } from '@/context/AuthContext';
 
-const defaultExerciseHtmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Exercise</title>
-    <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #f9f9f9; color: #333; }
-        .exercise-container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1 { color: #007bff; }
-        /* Add more specific exercise styling here */
-    </style>
-</head>
-<body>
-    <div class="exercise-container">
-        <h1>Exercise Title</h1>
-        <p>Replace this with your exercise instructions and content (e.g., questions, code snippets to complete, etc.).</p>
-        <p>You can use HTML to structure your exercise.</p>
-        <!-- Example: <input type="text" placeholder="Your answer here"> -->
-    </div>
-</body>
-</html>`;
+const defaultExerciseHtmlContent = `
+Paste your HTML code here
+`;
 
 type InstructionPanelState = 'hidden' | 'small' | 'medium';
 

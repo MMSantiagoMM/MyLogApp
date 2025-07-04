@@ -21,12 +21,12 @@ import { getAuth } from 'firebase/auth';
 // desarrollo se recargará automáticamente y el error desaparecerá.
 // =================================================================================
 const firebaseConfig = {
-  apiKey: "Pega tu apiKey aquí",
-  authDomain: "Pega tu authDomain aquí",
-  projectId: "Pega tu projectId aquí",
-  storageBucket: "Pega tu storageBucket aquí",
-  messagingSenderId: "Pega tu messagingSenderId aquí",
-  appId: "Pega tu appId aquí",
+  apiKey: "AIzaSyCz6sWkFl0v8pruiuvhMsSl6p-rTYnBIYs",
+  authDomain: "devspace-red1b.firebaseapp.com",
+  projectId: "devspace-red1b",
+  storageBucket: "devspace-red1b.firebasestorage.app",
+  messagingSenderId: "378679446306",
+  appId: "1:378679446306:web:7cb0b50e3ee36dbfd2f37b"
 };
 
 // Initialize Firebase

@@ -27,29 +27,9 @@ import type { HtmlPresenterItem } from '@/lib/data';
 import { cn } from "@/lib/utils";
 import { useAuth } from '@/context/AuthContext';
 
-const defaultHtmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My HTML Page</title>
-    <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #f0f0f0; color: #333; }
-        h1 { color: #007bff; }
-        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Hello, HTML Presenter!</h1>
-        <p>Edit this content in the editor to see it update live!</p>
-        <button onclick="alert('Button clicked!')">Click Me</button>
-    </div>
-    <script>
-        console.log("JavaScript is running!");
-    </script>
-</body>
-</html>`;
+const defaultHtmlContent = `
+Paste your HTML code here
+`;
 
 export default function HtmlPresenterPage() {
   const { userData } = useAuth();

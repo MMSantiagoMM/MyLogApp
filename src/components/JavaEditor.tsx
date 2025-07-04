@@ -19,20 +19,11 @@ const defaultJavaCode = `import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        System.out.println("Hello, Java Editor!");
         
-        // Example of reading user input:
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Enter something for the program:");
-        if (scanner.hasNextLine()) {
-            String userInputText = scanner.nextLine();
-            System.out.println("Your program received: " + userInputText);
-        } else {
-            System.out.println("No input provided to the program.");
-        }
-        scanner.close();
-        
-        // Your Java code here
+        //Write your code here!
+
+
+
     }
 }`;
 
