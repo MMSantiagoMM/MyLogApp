@@ -39,3 +39,6 @@ pnpm-debug.log*
 # genkit
 .genkit/
 .genkit-cache/
+
+#firebase
+/home/user/studio/src/lib/firebase.ts
