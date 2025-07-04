@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -35,6 +36,7 @@ import {
 import { useTranslations } from "next-intl";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Link, useRouter } from "@/navigation";
+import { useSidebar } from "./ui/sidebar";
 
 // Simple theme toggle (conceptual, full implementation requires theme context)
 const ThemeToggle = () => {
@@ -159,17 +161,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </SidebarContent>
           <SidebarFooter className="p-2">
             <Separator className="my-2" />
-             <div className="flex items-center justify-between p-2 group-data-[collapsible=icon]:justify-center">
-                <Avatar className="h-9 w-9 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8">
+             <div className="flex items-center justify-between group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
+                <Avatar className="h-9 w-9 group-data-[collapsible=icon]:order-last group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8">
                   <AvatarFallback>{user?.email ? user.email.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
                 </Avatar>
-              <div className="flex items-center gap-1">
-                 <ThemeToggle />
-                 <LanguageSwitcher />
-                 <Button variant="outline" size="icon" onClick={logout} aria-label="Logout">
-                    <Power className="h-5 w-5" />
-                 </Button>
-              </div>
+                <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
+                    <ThemeToggle />
+                    <LanguageSwitcher />
+                    <Button variant="outline" size="icon" onClick={logout} aria-label="Logout">
+                        <Power className="h-5 w-5" />
+                    </Button>
+                </div>
             </div>
           </SidebarFooter>
         </Sidebar>
