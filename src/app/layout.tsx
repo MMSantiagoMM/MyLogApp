@@ -1,9 +1,6 @@
 
 import type { Metadata } from 'next';
 import './globals.css';
-import AppShell from '@/components/AppShell';
-import { AuthProvider } from '@/context/AuthContext';
-import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
   title: 'Mi Cesde Java Compiler',
@@ -24,12 +21,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
         <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500;600&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased">
-        <AuthProvider>
-          <AppShell>{children}</AppShell>
-          <Toaster />
-        </AuthProvider>
-      </body>
+      <body className="font-body antialiased">{children}</body>
     </html>
   );
 }
