@@ -24,7 +24,7 @@ const firebaseConfig = {
   apiKey: "PASTE_YOUR_API_KEY_HERE",
   authDomain: "PASTE_YOUR_AUTH_DOMAIN_HERE",
   projectId: "PASTE_YOUR_PROJECT_ID_HERE",
-  storageBucket: "PASTE_YOUR_STORAGE_BUCKET_HERE",
+  storageBucket: "PAST_YOUR_STORAGE_BUCKET_HERE",
   messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID_HERE",
   appId: "PASTE_YOUR_APP_ID_HERE",
 };
@@ -33,18 +33,10 @@ const firebaseConfig = {
 let app;
 if (!getApps().length) {
   try {
-    // Basic check to see if the config has been updated.
-    if (firebaseConfig.apiKey.includes("PASTE_YOUR")) {
-        console.error(
-            "[firebase.ts] CRITICAL ERROR: Firebase configuration is still using placeholder values. " +
-            "Please open 'src/lib/firebase.ts' and replace the placeholder `firebaseConfig` object with your project's actual credentials. " +
-            "See the instructions in the comments within that file."
-        );
-    }
     app = initializeApp(firebaseConfig);
-    console.log("[firebase.ts] Firebase App Initialized. Project ID:", firebaseConfig.projectId);
   } catch (error) {
     console.error("[firebase.ts] Firebase initialization failed.", error);
+    // If you see an error here, it's likely due to the firebaseConfig object being incorrect.
   }
 } else {
   app = getApp();
