@@ -104,9 +104,14 @@ export default function GroupsPage() {
         setIsLoading(true);
         try {
             const studentsCollection = collection(db, 'groups', selectedGroupId, 'students');
-            const q = query(studentsCollection, orderBy('name'));
+            // Remove orderBy to avoid needing an index. Client-side sort instead.
+            const q = query(studentsCollection);
             const studentSnapshot = await getDocs(q);
             const studentList = studentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));
+
+            // Sort students by name on the client
+            studentList.sort((a, b) => a.name.localeCompare(b.name));
+            
             setStudents(studentList);
         } catch (error) {
             console.error("Error fetching students:", error);
@@ -437,5 +442,7 @@ export default function GroupsPage() {
         </div>
     );
 }
+
+    
 
     
