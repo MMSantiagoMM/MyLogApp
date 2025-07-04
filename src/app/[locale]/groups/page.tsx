@@ -35,7 +35,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, writeBatch, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, writeBatch, Timestamp } from 'firebase/firestore';
 import type { Group, Student } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, PlusCircle, Users, CalendarIcon, AlertTriangle } from 'lucide-react';
@@ -64,12 +64,29 @@ export default function GroupsPage() {
         setIsLoading(true);
         try {
             const groupsCollection = collection(db, 'groups');
-            const q = query(groupsCollection, where('profesorId', '==', user.uid), orderBy('createdAt', 'desc'));
+            // The orderBy clause is removed to avoid needing a composite index. Sorting is done on the client.
+            const q = query(groupsCollection, where('profesorId', '==', user.uid));
             const groupSnapshot = await getDocs(q);
-            const groupsList = groupSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Group));
+
+            const groupsList: Group[] = groupSnapshot.docs.map(doc => {
+                const data = doc.data();
+                const createdAt = data.createdAt as Timestamp; // Firestore returns a Timestamp object
+                return {
+                    id: doc.id,
+                    name: data.name,
+                    profesorId: data.profesorId,
+                    // Convert Timestamp to an ISO string for consistent handling
+                    createdAt: createdAt?.toDate().toISOString() || new Date().toISOString(),
+                };
+            });
+
+            // Sort the groups by creation date on the client-side
+            groupsList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
             setGroups(groupsList);
-            if (groupsList.length > 0 && !selectedGroupId) {
-                setSelectedGroupId(groupsList[0].id);
+            if (groupsList.length > 0) {
+                // Use functional update to avoid stale state from closure
+                setSelectedGroupId(prevId => prevId ? prevId : groupsList[0].id);
             }
         } catch (error) {
             console.error("Error fetching groups:", error);
@@ -77,7 +94,7 @@ export default function GroupsPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [isProfesor, user, toast, selectedGroupId]);
+    }, [isProfesor, user, toast]);
 
     const fetchStudents = useCallback(async () => {
         if (!selectedGroupId) {
