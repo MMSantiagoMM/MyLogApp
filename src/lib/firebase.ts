@@ -16,13 +16,19 @@ const firebaseConfig = {
 // Initialize Firebase
 let app;
 if (!getApps().length) {
-  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+  // Check for placeholder values
+  const isConfigValid = firebaseConfig.apiKey && 
+                        firebaseConfig.projectId && 
+                        !firebaseConfig.apiKey.includes('YOUR_') && 
+                        !firebaseConfig.projectId.includes('YOUR_');
+  
+  if (isConfigValid) {
     console.log("[firebase.ts] Initializing Firebase app with projectId:", firebaseConfig.projectId);
     app = initializeApp(firebaseConfig);
   } else {
     console.error(
-      "[firebase.ts] CRITICAL ERROR: Firebase configuration is missing or incomplete. " +
-      "Please check your .env file and ensure NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID (and others) are correctly set. " +
+      "[firebase.ts] CRITICAL ERROR: Firebase configuration is missing or contains placeholder values. " +
+      "Please check your .env file and ensure all NEXT_PUBLIC_FIREBASE_* variables are correctly set with your actual project credentials. " +
       "You MUST restart your Next.js development server after modifying the .env file."
     );
   }
