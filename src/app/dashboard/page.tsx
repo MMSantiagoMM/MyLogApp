@@ -1,9 +1,8 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ListChecks, Lightbulb, BookOpen, Users, TerminalSquare, Youtube } from "lucide-react"; // Added Youtube
 import Image from "next/image";
-import Link from "next/link";
+import { Link } from "@/navigation";
 
 export default function DashboardPage() {
   return (

@@ -1,0 +1,16 @@
+
+{
+    "AppShell": {
+        "dashboard": "Dashboard",
+        "editor": "Java Editor",
+        "files": "Video Hub",
+        "exercises": "Exercises",
+        "presenter": "HTML Presenter",
+        "groups": "Groups"
+    },
+    "LanguageSwitcher": {
+        "label": "Change language",
+        "en": "English",
+        "es": "Spanish"
+    }
+}

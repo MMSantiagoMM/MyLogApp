@@ -1,9 +1,7 @@
-
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   SidebarProvider,
@@ -29,10 +27,13 @@ import {
     Sun,
     Coffee,
     Youtube,
-    LogOut,
-    Loader2
+    Power,
+    Loader2,
+    Users,
 } from "lucide-react";
-import { Badge } from "./ui/badge";
+import { useTranslations } from "next-intl";
+import { LanguageSwitcher } from "./LanguageSwitcher";
+import { Link, useRouter } from "@/navigation";
 
 // Simple theme toggle (conceptual, full implementation requires theme context)
 const ThemeToggle = () => {
@@ -63,7 +64,7 @@ const ThemeToggle = () => {
   };
 
   return (
-    <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
+    <Button variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
       {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
     </Button>
   );
@@ -72,7 +73,7 @@ const ThemeToggle = () => {
 
 const NavItem = ({ href, icon: Icon, label }: { href: string; icon: React.ElementType; label: string }) => {
   const pathname = usePathname();
-  const isActive = pathname === href;
+  const isActive = pathname.endsWith(href);
   return (
     <SidebarMenuItem>
       <Link href={href} passHref legacyBehavior>
@@ -89,29 +90,38 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, userData, loading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const t = useTranslations("AppShell");
+  const isProfesor = userData?.role === 'profesor';
 
   const navItems = [
-    { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/editor", icon: TerminalSquare, label: "Java Editor" },
-    { href: "/files", icon: Youtube, label: "Video Hub" },
-    { href: "/exercises", icon: ListChecks, label: "Exercises" },
-    { href: "/html-presenter", icon: Presentation, label: "HTML Presenter" },
+    { href: "/dashboard", icon: LayoutDashboard, label: t('dashboard') },
+    { href: "/editor", icon: TerminalSquare, label: t('editor') },
+    { href: "/files", icon: Youtube, label: t('files') },
+    { href: "/exercises", icon: ListChecks, label: t('exercises') },
+    { href: "/html-presenter", icon: Presentation, label: t('presenter') },
   ];
 
+  if (isProfesor) {
+    navItems.push({ href: "/groups", icon: Users, label: t('groups') });
+  }
+
   const publicPaths = ['/login', '/signup', '/'];
-  const isPublicPath = publicPaths.includes(pathname);
+  // Check if the current pathname is one of the public paths, ignoring locale
+  const isPublicPath = publicPaths.some(p => pathname.endsWith(p));
+  const isRootPath = pathname === '/' || pathname === '/en' || pathname === '/es';
+
 
   React.useEffect(() => {
     if (loading) return; // Wait until loading is finished
 
-    if (!user && !isPublicPath) {
+    if (!user && !isPublicPath && !isRootPath) {
       router.push('/login');
-    } else if (user && isPublicPath) {
+    } else if (user && (isPublicPath || isRootPath)) {
       router.push('/dashboard');
     }
-  }, [user, loading, isPublicPath, router, pathname]);
+  }, [user, loading, isPublicPath, isRootPath, router, pathname]);
 
-  if (loading) {
+  if (loading || (!user && !isPublicPath && !isRootPath)) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -120,19 +130,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   // If we are on a public path and not logged in, just render the content
-  if (!user && isPublicPath) {
+  if (!user && (isPublicPath || isRootPath)) {
     return <>{children}</>;
   }
   
-  // If we are on a protected path and not logged in, show a loader while redirecting
-  if (!user) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   // If user is authenticated, render the full shell
   return (
     <SidebarProvider defaultOpen>
@@ -157,23 +158,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <SidebarFooter className="p-2">
             <Separator className="my-2" />
              <div className="flex items-center justify-between p-2 group-data-[collapsible=icon]:justify-center">
-              <div className="flex items-center gap-3 group-data-[collapsible=icon]:hidden">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>{user.email ? user.email.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
+                <Avatar className="h-9 w-9 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8">
+                  <AvatarFallback>{user?.email ? user.email.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
                 </Avatar>
-                <div className="text-sm flex flex-col">
-                  <p className="font-medium text-foreground truncate max-w-[120px]" title={user.email ?? ''}>{user.email}</p>
-                  {userData?.role && (
-                    <Badge variant="secondary" className="capitalize w-fit text-xs px-1.5 py-0">
-                      {userData.role}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center">
+              <div className="flex items-center gap-1">
                  <ThemeToggle />
-                 <Button variant="ghost" size="icon" onClick={logout} aria-label="Logout">
-                    <LogOut className="h-5 w-5" />
+                 <LanguageSwitcher />
+                 <Button variant="outline" size="icon" onClick={logout} aria-label="Logout">
+                    <Power className="h-5 w-5" />
                  </Button>
               </div>
             </div>

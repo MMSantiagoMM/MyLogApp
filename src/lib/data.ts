@@ -43,3 +43,24 @@ export interface UserData {
   role: 'profesor' | 'estudiante';
   createdAt: Timestamp;
 }
+
+// Represents a professor's group of students
+export interface Group {
+    id: string;
+    name: string;
+    profesorId: string;
+    createdAt: string;
+}
+
+// Represents a student within a group
+export interface Student {
+    id: string;
+    name: string;
+    grades: {
+        m1: (number | null)[];
+        m2: (number | null)[];
+        m3: (number | null)[];
+    };
+    // Attendance stored as a map of date strings (YYYY-MM-DD) to status
+    attendance: Record<string, 'present' | 'absent' | 'excused'>;
+}
