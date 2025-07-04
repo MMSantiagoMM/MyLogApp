@@ -1,9 +1,10 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, where, Timestamp, orderBy } from 'firebase/firestore';
 import type { Evaluation, Question, Answer, StudentSubmission, Group } from '@/lib/data';
 
 import { useToast } from "@/hooks/use-toast";
@@ -18,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Loader2, PlusCircle, Trash2, Edit, CalendarIcon, AlertTriangle, BookCheck, CheckCircle, XCircle, ArrowLeft, Send, BarChart } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Edit, CalendarIcon, AlertTriangle, BookCheck, CheckCircle, XCircle, ArrowLeft, Send, BarChart, PlayCircle } from 'lucide-react';
 import { format, isAfter, isBefore, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -65,18 +66,21 @@ function ProfessorEvaluationsView() {
         if (!user) return;
         setIsLoading(true);
         try {
-            const q = query(collection(db, 'evaluations'), where('profesorId', '==', user.uid), orderBy('createdAt', 'desc'));
+            const q = query(collection(db, 'evaluations'), where('profesorId', '==', user.uid));
             const querySnapshot = await getDocs(q);
             const evalsList = querySnapshot.docs.map(doc => {
                 const data = doc.data();
+                const createdAt = data.createdAt as Timestamp;
                 return {
                     id: doc.id,
                     ...data,
                     startDate: (data.startDate as Timestamp).toDate().toISOString(),
                     endDate: (data.endDate as Timestamp).toDate().toISOString(),
-                    createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+                    createdAt: createdAt?.toDate().toISOString() || new Date().toISOString(),
                 } as Evaluation;
             });
+            // Sort client-side to avoid composite index
+            evalsList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
             setEvaluations(evalsList);
         } catch (error) {
             console.error("Error fetching evaluations:", error);
@@ -473,20 +477,34 @@ function EvaluationForm({ existingEvaluation, onFinished }: { existingEvaluation
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <Textarea value={q.text} onChange={e => handleQuestionTextChange(qIndex, e.target.value)} placeholder="Escribe el enunciado de la pregunta..."/>
-                                <RadioGroup value={q.answers.find(a => a.isCorrect)?.id} onValueChange={() => handleCorrectAnswerChange(qIndex, q.answers.findIndex(a => a.id === q.answers.find(a => a.isCorrect)?.id))}>
-                                <div className="space-y-2">
-                                    <h4 className="font-semibold text-sm">Respuestas</h4>
-                                    {q.answers.map((ans, aIndex) => (
-                                        <div key={ans.id} className="flex items-center gap-2">
-                                            <Checkbox checked={ans.isCorrect} onCheckedChange={() => handleCorrectAnswerChange(qIndex, aIndex)} id={`correct-${q.id}-${ans.id}`}/>
-                                            <Input value={ans.text} onChange={e => handleAnswerTextChange(qIndex, aIndex, e.target.value)} className="flex-grow" placeholder={`Opción ${aIndex + 1}`} />
-                                            <Button type="button" variant="ghost" size="icon" onClick={() => removeAnswer(qIndex, aIndex)} disabled={q.answers.length <= 1}><XCircle className="h-4 w-4"/></Button>
-                                        </div>
-                                    ))}
-                                </div>
+                                
+                                <RadioGroup 
+                                    value={q.answers.find(a => a.isCorrect)?.id}
+                                    onValueChange={(value) => {
+                                        const newCorrectIndex = q.answers.findIndex(a => a.id === value);
+                                        if (newCorrectIndex !== -1) {
+                                            handleCorrectAnswerChange(qIndex, newCorrectIndex);
+                                        }
+                                    }}
+                                >
+                                    <div className="space-y-2">
+                                        <h4 className="font-semibold text-sm text-muted-foreground">Respuestas (marca la opción correcta)</h4>
+                                        {q.answers.map((ans, aIndex) => (
+                                            <div key={ans.id} className="flex items-center gap-2">
+                                                <RadioGroupItem value={ans.id} id={`q-${q.id}-a-${ans.id}`} />
+                                                <Label htmlFor={`q-${q.id}-a-${ans.id}`} className="flex-grow">
+                                                    <Input value={ans.text} onChange={e => handleAnswerTextChange(qIndex, aIndex, e.target.value)} className="w-full" placeholder={`Opción ${aIndex + 1}`} />
+                                                </Label>
+                                                <Button type="button" variant="ghost" size="icon" onClick={() => removeAnswer(qIndex, aIndex)} disabled={q.answers.length <= 1}>
+                                                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </RadioGroup>
+                                
                                 <Button type="button" variant="outline" size="sm" onClick={() => addAnswer(qIndex)}>
-                                    <PlusCircle className="mr-2 h-4 w-4"/>Añadir Respuesta
+                                    <PlusCircle className="mr-2 h-4 w-4"/>Añadir Opción
                                 </Button>
                             </CardContent>
                         </Card>
