@@ -1,25 +1,50 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth'; 
+import { getAuth } from 'firebase/auth';
 
+// =================================================================================
+// IMPORTANT: PASTE YOUR FIREBASE CONFIGURATION HERE
+// =================================================================================
+// To fix the "auth/api-key-not-valid" error, you must replace the placeholder
+// values below with the actual configuration object from your Firebase project.
+//
+// How to get your config:
+// 1. Go to the Firebase Console -> Project Settings (gear icon).
+// 2. In the "General" tab, scroll down to the "Your apps" section.
+// 3. Find your web app and click on "SDK setup and configuration".
+// 4. Select the "Config" option.
+// 5. Copy the entire `firebaseConfig` object and paste it here, replacing the
+//    one below.
+//
+// After pasting your config, SAVE the file. The development server will
+// automatically reload, and the error should be resolved.
+// =================================================================================
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "PASTE_YOUR_API_KEY_HERE",
+  authDomain: "PASTE_YOUR_AUTH_DOMAIN_HERE",
+  projectId: "PASTE_YOUR_PROJECT_ID_HERE",
+  storageBucket: "PASTE_YOUR_STORAGE_BUCKET_HERE",
+  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID_HERE",
+  appId: "PASTE_YOUR_APP_ID_HERE",
 };
 
 // Initialize Firebase
 let app;
 if (!getApps().length) {
   try {
+    // Basic check to see if the config has been updated.
+    if (firebaseConfig.apiKey.includes("PASTE_YOUR")) {
+        console.error(
+            "[firebase.ts] CRITICAL ERROR: Firebase configuration is still using placeholder values. " +
+            "Please open 'src/lib/firebase.ts' and replace the placeholder `firebaseConfig` object with your project's actual credentials. " +
+            "See the instructions in the comments within that file."
+        );
+    }
     app = initializeApp(firebaseConfig);
-    console.log("[firebase.ts] Initializing Firebase app with projectId:", firebaseConfig.projectId);
+    console.log("[firebase.ts] Firebase App Initialized. Project ID:", firebaseConfig.projectId);
   } catch (error) {
-    console.error("[firebase.ts] Firebase initialization failed. This is often due to missing or invalid configuration in your .env file.", error);
+    console.error("[firebase.ts] Firebase initialization failed.", error);
   }
 } else {
   app = getApp();
@@ -28,14 +53,12 @@ if (!getApps().length) {
 let db;
 let auth;
 
-// Only try to get db and auth if the app was successfully initialized.
 if (app) {
   db = getFirestore(app);
   auth = getAuth(app);
 } else {
     console.error(
-    "[firebase.ts] Firebase app is not available. Firestore and Auth will not be available. " +
-    "Please check your .env file for correct Firebase credentials and restart the server."
+    "[firebase.ts] Firebase app is not available. Firestore and Auth will not be available."
   );
 }
 
