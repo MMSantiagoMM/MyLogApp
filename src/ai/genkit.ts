@@ -1,29 +1,24 @@
 
 import {genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai';
-import { config } from 'dotenv'; // Import dotenv
+import { config } from 'dotenv';
 
-// Ensure .env variables are loaded when this module is initialized
+// Load environment variables from .env file
 config(); 
 
-const apiKeyFromEnv = process.env.GEMINI_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY;
 
-// Diagnostic log: Check if the API key is loaded from the environment
-console.log('[genkit.ts] Attempting to load GEMINI_API_KEY. Value found:', 
-            apiKeyFromEnv ? `Exists (length: ${apiKeyFromEnv.length})` : 'NOT FOUND or empty');
-
-// For more direct debugging, you can uncomment the line below.
-// WARNING: This will print your API key to the console. Do not commit or use in production.
-// console.log('[genkit.ts] Actual GEMINI_API_KEY value:', apiKeyFromEnv);
-
-if (!apiKeyFromEnv) {
-  console.error('[genkit.ts] ERROR: GEMINI_API_KEY is not set in environment variables. The googleAI plugin will likely fail to initialize.');
-  console.error('[genkit.ts] Please ensure your .env file is correctly set up and the server has been restarted.');
+if (!apiKey || apiKey.includes("YOUR_")) {
+  console.error(
+    "[genkit.ts] ERROR: GEMINI_API_KEY is not set or is a placeholder in your environment variables. " +
+    "The googleAI plugin will likely fail to initialize. Please ensure your .env file is " +
+    "correctly set up and the Genkit server has been restarted."
+  );
 }
 
 export const ai = genkit({
   plugins: [
-    googleAI({ apiKey: apiKeyFromEnv }), // Explicitly pass the apiKey
+    googleAI({ apiKey: apiKey }),
   ],
   model: 'googleai/gemini-2.0-flash',
 });

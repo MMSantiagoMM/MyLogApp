@@ -1,33 +1,26 @@
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
-// =================================================================================
-// ¡ERROR CRÍTICO! DEBES CONFIGURAR FIREBASE AQUÍ PARA QUE EL LOGIN FUNCIONE.
-// =================================================================================
-// Para solucionar el error "auth/api-key-not-valid", reemplaza el objeto
-// `firebaseConfig` de abajo con el de tu propio proyecto de Firebase.
-//
-// CÓMO OBTENER TU CONFIGURACIÓN:
-// 1. Ve a la Consola de Firebase -> Configuración del proyecto (icono de engranaje).
-// 2. En la pestaña "General", baja hasta la sección "Tus apps".
-// 3. Busca tu app web y haz clic en "Configuración y SDK".
-// 4. Selecciona la opción "Config".
-// 5. Copia el objeto `firebaseConfig` completo y pégalo aquí, reemplazando
-//    el que está de ejemplo.
-//
-// Después de pegar tu configuración, GUARDA el archivo. El servidor de
-// desarrollo se recargará automáticamente y el error desaparecerá.
-// =================================================================================
-const firebaseConfig = {
-  apiKey: "AIzaSyCz6sWkFl0v8pruiuvhMsSl6p-rTYnBIYs",
-  authDomain: "devspace-red1b.firebaseapp.com",
-  projectId: "devspace-red1b",
-  storageBucket: "devspace-red1b.firebasestorage.app",
-  messagingSenderId: "378679446306",
-  appId: "1:378679446306:web:7cb0b50e3ee36dbfd2f37b"
+const firebaseConfig: FirebaseOptions = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+// Basic check to see if the config has been populated from .env
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("YOUR_")) {
+  console.error(
+    "CRITICAL ERROR: Firebase configuration is missing or contains placeholder values. " +
+    "Please ensure your .env file at the root of the project is correctly set up with all " +
+    "NEXT_PUBLIC_FIREBASE_* variables. You MUST restart your Next.js development server " +
+    "after modifying the .env file."
+  );
+}
 
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
