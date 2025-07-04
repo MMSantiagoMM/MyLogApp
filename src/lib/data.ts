@@ -1,4 +1,3 @@
-
 // src/lib/data.ts
 import type { Timestamp } from "firebase/firestore";
 
@@ -31,7 +30,7 @@ export interface ExerciseItem {
 }
 
 export interface HtmlPresenterItem {
-  id: string;
+  id:string;
   title: string;
   htmlContent: string;
   createdAt: string;
@@ -43,12 +42,4 @@ export interface UserData {
   email: string | null;
   role: 'profesor' | 'estudiante';
   createdAt: Timestamp;
-}
-
-export interface Video {
-    id: string;
-    title: string;
-    url: string;
-    description: string;
-    createdAt: string; 
 }

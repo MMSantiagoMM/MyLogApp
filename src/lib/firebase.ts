@@ -1,8 +1,7 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth'; // If you plan to use Firebase Authentication
-// import { getStorage } from 'firebase/storage'; // If you plan to use Firebase Storage
+import { getAuth } from 'firebase/auth'; 
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -16,40 +15,28 @@ const firebaseConfig = {
 // Initialize Firebase
 let app;
 if (!getApps().length) {
-  // Check for placeholder values
-  const isConfigValid = firebaseConfig.apiKey && 
-                        firebaseConfig.projectId && 
-                        !firebaseConfig.apiKey.includes('YOUR_') && 
-                        !firebaseConfig.projectId.includes('YOUR_');
-  
-  if (isConfigValid) {
-    console.log("[firebase.ts] Initializing Firebase app with projectId:", firebaseConfig.projectId);
+  try {
     app = initializeApp(firebaseConfig);
-  } else {
-    console.error(
-      "[firebase.ts] CRITICAL ERROR: Firebase configuration is missing or contains placeholder values. " +
-      "Please check your .env file and ensure all NEXT_PUBLIC_FIREBASE_* variables are correctly set with your actual project credentials. " +
-      "You MUST restart your Next.js development server after modifying the .env file."
-    );
+    console.log("[firebase.ts] Initializing Firebase app with projectId:", firebaseConfig.projectId);
+  } catch (error) {
+    console.error("[firebase.ts] Firebase initialization failed. This is often due to missing or invalid configuration in your .env file.", error);
   }
 } else {
   app = getApp();
-  console.log("[firebase.ts] Using existing Firebase app for projectId:", getApp().options.projectId);
 }
 
 let db;
 let auth;
+
+// Only try to get db and auth if the app was successfully initialized.
 if (app) {
   db = getFirestore(app);
   auth = getAuth(app);
 } else {
-  // Fallback or error handling for db if app didn't initialize
-  console.error(
-    "[firebase.ts] Firebase app failed to initialize. Firestore and Auth will not be available. " +
-    "Review previous error messages for missing Firebase configuration."
+    console.error(
+    "[firebase.ts] Firebase app is not available. Firestore and Auth will not be available. " +
+    "Please check your .env file for correct Firebase credentials and restart the server."
   );
 }
-
-// const storage = getStorage(app); // If using storage
 
 export { app, db, auth };
