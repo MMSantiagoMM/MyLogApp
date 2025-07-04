@@ -211,7 +211,15 @@ function StudentEvaluationsView() {
             // Fetch student's submissions
             const subsQuery = query(collection(db, 'submissions'), where('studentId', '==', user.uid));
             const subsSnapshot = await getDocs(subsQuery);
-            const studentSubmissions = subsSnapshot.docs.map(doc => doc.data() as StudentSubmission);
+            const studentSubmissions = subsSnapshot.docs.map(doc => {
+                const data = doc.data();
+                const submittedAtTimestamp = data.submittedAt as Timestamp;
+                return {
+                    id: doc.id,
+                    ...data,
+                    submittedAt: submittedAtTimestamp?.toDate().toISOString() || new Date().toISOString(),
+                } as StudentSubmission;
+            });
             
             setSubmissions(studentSubmissions);
 
@@ -722,3 +730,5 @@ function EvaluationResultView({ submission, onBack }: { submission: StudentSubmi
         </div>
     )
 }
+
+    
