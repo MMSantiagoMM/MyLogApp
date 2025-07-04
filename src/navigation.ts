@@ -24,6 +24,10 @@ export const pathnames = {
     en: '/exercises',
     es: '/ejercicios'
   },
+  '/evaluations': {
+    en: '/evaluations',
+    es: '/evaluaciones'
+  },
   '/html-presenter': {
     en: '/html-presenter',
     es: '/presentador-html'

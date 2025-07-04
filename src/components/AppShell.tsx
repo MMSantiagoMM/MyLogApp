@@ -30,6 +30,7 @@ import {
     Power,
     Loader2,
     Users,
+    BookCheck,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -98,6 +99,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/editor", icon: TerminalSquare, label: t('editor') },
     { href: "/files", icon: Youtube, label: t('files') },
     { href: "/exercises", icon: ListChecks, label: t('exercises') },
+    { href: "/evaluations", icon: BookCheck, label: t('evaluations') },
     { href: "/html-presenter", icon: Presentation, label: t('presenter') },
   ];
 

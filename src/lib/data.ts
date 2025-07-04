@@ -64,3 +64,41 @@ export interface Student {
     // Attendance stored as a map of date strings (YYYY-MM-DD) to status
     attendance: Record<string, 'present' | 'absent' | 'excused'>;
 }
+
+// Interfaces for the new Evaluations feature
+export interface Answer {
+  id: string; // random uuid generated on client
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface Question {
+  id: string; // random uuid generated on client
+  text: string;
+  answers: Answer[];
+}
+
+export interface Evaluation {
+  id: string; // firestore doc id
+  profesorId: string;
+  topic: string;
+  startDate: string; // ISO string
+  endDate: string; // ISO string
+  questions: Question[];
+  assignedGroupIds: string[]; // array of group IDs
+  createdAt: string; // ISO string
+}
+
+export interface StudentSubmission {
+  id: string; // firestore doc id
+  studentId: string;
+  studentName: string; 
+  evaluationId: string;
+  evaluationTopic: string;
+  submittedAt: string; // ISO string
+  // A map of question ID to the selected answer ID
+  selectedAnswers: Record<string, string>;
+  score: number; // Final score 1-5
+  totalQuestions: number;
+  correctAnswersCount: number;
+}
