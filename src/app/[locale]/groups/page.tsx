@@ -406,18 +406,18 @@ export default function GroupsPage() {
                                             <TableRow key={student.id}>
                                                 <TableCell className="font-medium sticky left-0 bg-card z-10 w-[200px] whitespace-nowrap">{student.name}</TableCell>
                                                 {[...Array(3)].map((_, i) => (
-                                                    <TableCell key={`m1-g${i}`} className={cn("p-2", i === 0 ? 'border-l' : '')}>
-                                                        <Input type="number" min="0" max="10" step="0.1" value={student.grades.m1[i] ?? ''} onChange={e => handleGradeChange(student.id, 'm1', i, e.target.value)} className="w-20 text-center"/>
+                                                    <TableCell key={`m1-g${i}`} className={cn("p-1", i === 0 ? 'border-l' : '')}>
+                                                        <Input type="number" min="0" max="10" step="0.1" value={student.grades.m1[i] ?? ''} onChange={e => handleGradeChange(student.id, 'm1', i, e.target.value)} className="w-16 text-center"/>
                                                     </TableCell>
                                                 ))}
                                                 {[...Array(3)].map((_, i) => (
-                                                    <TableCell key={`m2-g${i}`} className={cn("p-2", i === 0 ? 'border-l' : '')}>
-                                                        <Input type="number" min="0" max="10" step="0.1" value={student.grades.m2[i] ?? ''} onChange={e => handleGradeChange(student.id, 'm2', i, e.target.value)} className="w-20 text-center"/>
+                                                    <TableCell key={`m2-g${i}`} className={cn("p-1", i === 0 ? 'border-l' : '')}>
+                                                        <Input type="number" min="0" max="10" step="0.1" value={student.grades.m2[i] ?? ''} onChange={e => handleGradeChange(student.id, 'm2', i, e.target.value)} className="w-16 text-center"/>
                                                     </TableCell>
                                                 ))}
                                                  {[...Array(3)].map((_, i) => (
-                                                    <TableCell key={`m3-g${i}`} className={cn("p-2", i === 0 ? 'border-l' : '', i === 2 ? 'border-r' : '')}>
-                                                        <Input type="number" min="0" max="10" step="0.1" value={student.grades.m3[i] ?? ''} onChange={e => handleGradeChange(student.id, 'm3', i, e.target.value)} className="w-20 text-center"/>
+                                                    <TableCell key={`m3-g${i}`} className={cn("p-1", i === 0 ? 'border-l' : '', i === 2 ? 'border-r' : '')}>
+                                                        <Input type="number" min="0" max="10" step="0.1" value={student.grades.m3[i] ?? ''} onChange={e => handleGradeChange(student.id, 'm3', i, e.target.value)} className="w-16 text-center"/>
                                                     </TableCell>
                                                 ))}
                                                 <TableCell className="text-center whitespace-nowrap p-2">
@@ -442,6 +442,8 @@ export default function GroupsPage() {
         </div>
     );
 }
+
+    
 
     
 
