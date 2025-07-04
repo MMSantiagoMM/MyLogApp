@@ -44,3 +44,11 @@ export interface UserData {
   role: 'profesor' | 'estudiante';
   createdAt: Timestamp;
 }
+
+export interface Video {
+    id: string;
+    title: string;
+    url: string;
+    description: string;
+    createdAt: string; 
+}
