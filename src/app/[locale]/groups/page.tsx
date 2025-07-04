@@ -35,11 +35,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, writeBatch, getDoc, collectionGroup, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, writeBatch, orderBy } from 'firebase/firestore';
 import type { Group, Student } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, PlusCircle, Users, CalendarIcon, AlertTriangle } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export default function GroupsPage() {
@@ -100,25 +100,32 @@ export default function GroupsPage() {
     }, [selectedGroupId, toast]);
 
     useEffect(() => {
-        fetchGroups();
-    }, [fetchGroups]);
+        if (isProfesor) {
+            fetchGroups();
+        } else {
+            setIsLoading(false);
+        }
+    }, [isProfesor, fetchGroups]);
 
     useEffect(() => {
-        fetchStudents();
-    }, [fetchStudents]);
+        if (selectedGroupId) {
+            fetchStudents();
+        }
+    }, [selectedGroupId, fetchStudents]);
     
     const handleCreateGroup = async () => {
         if (!newGroupName.trim() || !user) return;
         setIsSubmitting(true);
         try {
-            await addDoc(collection(db, 'groups'), {
+            const newGroupRef = await addDoc(collection(db, 'groups'), {
                 name: newGroupName,
                 profesorId: user.uid,
                 createdAt: serverTimestamp(),
             });
             toast({ title: 'Group Created', description: `"${newGroupName}" has been created.` });
             setNewGroupName('');
-            fetchGroups();
+            await fetchGroups();
+            setSelectedGroupId(newGroupRef.id);
         } catch (error) {
             console.error("Error creating group:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not create group.' });
@@ -209,12 +216,20 @@ export default function GroupsPage() {
         setAttendanceRecords(initialAttendance);
     };
 
+    if (isLoading && !user) {
+         return (
+            <div className="flex justify-center items-center h-screen">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+        );
+    }
+
     if (!isProfesor) {
         return (
-            <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
                 <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
                 <h2 className="text-2xl font-bold">Access Denied</h2>
-                <p className="text-muted-foreground">This page is only available for professors.</p>
+                <p className="text-muted-foreground max-w-lg">This page is only available for professors. Please contact an administrator if you believe this is an error.</p>
             </div>
         );
     }
@@ -260,16 +275,18 @@ export default function GroupsPage() {
                                 <DialogClose asChild>
                                     <Button type="button" variant="secondary">Cancel</Button>
                                 </DialogClose>
-                                <Button onClick={handleCreateGroup} disabled={isSubmitting || !newGroupName.trim()}>
-                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create
-                                </Button>
+                                <DialogClose asChild>
+                                    <Button onClick={handleCreateGroup} disabled={isSubmitting || !newGroupName.trim()}>
+                                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create
+                                    </Button>
+                                </DialogClose>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
                 </CardContent>
             </Card>
 
-            {selectedGroupId && (
+            {selectedGroupId ? (
                 <Card>
                     <CardHeader>
                         <CardTitle>Students in "{groups.find(g => g.id === selectedGroupId)?.name}"</CardTitle>
@@ -317,15 +334,15 @@ export default function GroupsPage() {
                                                     <div className="flex items-center gap-4">
                                                         <div className="flex items-center space-x-2">
                                                             <Checkbox id={`present-${student.id}`} checked={attendanceRecords[student.id] === 'present'} onCheckedChange={(checked) => checked && setAttendanceRecords(prev => ({ ...prev, [student.id]: 'present' }))}/>
-                                                            <label htmlFor={`present-${student.id}`} className="text-sm">P</label>
+                                                            <label htmlFor={`present-${student.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">P</label>
                                                         </div>
                                                         <div className="flex items-center space-x-2">
                                                             <Checkbox id={`absent-${student.id}`} checked={attendanceRecords[student.id] === 'absent'} onCheckedChange={(checked) => checked && setAttendanceRecords(prev => ({ ...prev, [student.id]: 'absent' }))}/>
-                                                            <label htmlFor={`absent-${student.id}`} className="text-sm">A</label>
+                                                            <label htmlFor={`absent-${student.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">A</label>
                                                         </div>
                                                         <div className="flex items-center space-x-2">
                                                             <Checkbox id={`excused-${student.id}`} checked={attendanceRecords[student.id] === 'excused'} onCheckedChange={(checked) => checked && setAttendanceRecords(prev => ({ ...prev, [student.id]: 'excused' }))}/>
-                                                            <label htmlFor={`excused-${student.id}`} className="text-sm">E</label>
+                                                            <label htmlFor={`excused-${student.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">E</label>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -350,39 +367,39 @@ export default function GroupsPage() {
                             <Table className="min-w-max">
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="sticky left-0 bg-card">Student Name</TableHead>
+                                        <TableHead className="sticky left-0 bg-card z-10 w-[200px]">Student Name</TableHead>
                                         <TableHead colSpan={3} className="text-center border-l border-r">Momento 1</TableHead>
                                         <TableHead colSpan={3} className="text-center border-l border-r">Momento 2</TableHead>
                                         <TableHead colSpan={3} className="text-center border-l border-r">Momento 3</TableHead>
-                                        <TableHead className="text-center">Attendance</TableHead>
+                                        <TableHead className="text-center">Attendance (P/A)</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
                                         <TableRow><TableCell colSpan={11} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
                                     ) : students.length === 0 ? (
-                                         <TableRow><TableCell colSpan={11} className="h-24 text-center">No students in this group yet.</TableCell></TableRow>
+                                         <TableRow><TableCell colSpan={11} className="h-24 text-center">No students in this group yet. Add one above.</TableCell></TableRow>
                                     ) : (
                                         students.map(student => (
                                             <TableRow key={student.id}>
-                                                <TableCell className="font-medium sticky left-0 bg-card whitespace-nowrap">{student.name}</TableCell>
+                                                <TableCell className="font-medium sticky left-0 bg-card z-10 w-[200px] whitespace-nowrap">{student.name}</TableCell>
                                                 {[...Array(3)].map((_, i) => (
-                                                    <TableCell key={`m1-g${i}`} className={i === 0 ? 'border-l' : ''}>
+                                                    <TableCell key={`m1-g${i}`} className={cn("p-2", i === 0 ? 'border-l' : '')}>
                                                         <Input type="number" min="0" max="10" step="0.1" value={student.grades.m1[i] ?? ''} onChange={e => handleGradeChange(student.id, 'm1', i, e.target.value)} className="w-20 text-center"/>
                                                     </TableCell>
                                                 ))}
                                                 {[...Array(3)].map((_, i) => (
-                                                    <TableCell key={`m2-g${i}`} className={i === 0 ? 'border-l' : ''}>
+                                                    <TableCell key={`m2-g${i}`} className={cn("p-2", i === 0 ? 'border-l' : '')}>
                                                         <Input type="number" min="0" max="10" step="0.1" value={student.grades.m2[i] ?? ''} onChange={e => handleGradeChange(student.id, 'm2', i, e.target.value)} className="w-20 text-center"/>
                                                     </TableCell>
                                                 ))}
                                                  {[...Array(3)].map((_, i) => (
-                                                    <TableCell key={`m3-g${i}`} className={i === 0 ? 'border-l' : i === 2 ? 'border-r' : ''}>
+                                                    <TableCell key={`m3-g${i}`} className={cn("p-2", i === 0 ? 'border-l' : '', i === 2 ? 'border-r' : '')}>
                                                         <Input type="number" min="0" max="10" step="0.1" value={student.grades.m3[i] ?? ''} onChange={e => handleGradeChange(student.id, 'm3', i, e.target.value)} className="w-20 text-center"/>
                                                     </TableCell>
                                                 ))}
-                                                <TableCell className="text-center whitespace-nowrap">
-                                                    {Object.values(student.attendance).filter(s => s === 'present').length} P / {Object.values(student.attendance).filter(s => s === 'absent').length} A
+                                                <TableCell className="text-center whitespace-nowrap p-2">
+                                                    {Object.values(student.attendance).filter(s => s === 'present').length} / {Object.values(student.attendance).filter(s => s === 'absent').length}
                                                 </TableCell>
                                             </TableRow>
                                         ))
@@ -392,7 +409,16 @@ export default function GroupsPage() {
                         </div>
                     </CardContent>
                 </Card>
+            ) : (
+                <Card className="flex items-center justify-center h-48">
+                    <CardContent className="text-center text-muted-foreground p-6">
+                        <p className="font-semibold">No group selected</p>
+                        <p>Please select a group above, or create a new one to begin.</p>
+                    </CardContent>
+                </Card>
             )}
         </div>
     );
 }
+
+    
