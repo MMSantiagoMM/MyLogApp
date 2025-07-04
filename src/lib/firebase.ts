@@ -4,54 +4,34 @@ import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 // =================================================================================
-// IMPORTANT: PASTE YOUR FIREBASE CONFIGURATION HERE
+// ¡ERROR CRÍTICO! DEBES CONFIGURAR FIREBASE AQUÍ PARA QUE EL LOGIN FUNCIONE.
 // =================================================================================
-// To fix the "auth/api-key-not-valid" error, you must replace the placeholder
-// values below with the actual configuration object from your Firebase project.
+// Para solucionar el error "auth/api-key-not-valid", reemplaza el objeto
+// `firebaseConfig` de abajo con el de tu propio proyecto de Firebase.
 //
-// How to get your config:
-// 1. Go to the Firebase Console -> Project Settings (gear icon).
-// 2. In the "General" tab, scroll down to the "Your apps" section.
-// 3. Find your web app and click on "SDK setup and configuration".
-// 4. Select the "Config" option.
-// 5. Copy the entire `firebaseConfig` object and paste it here, replacing the
-//    one below.
+// CÓMO OBTENER TU CONFIGURACIÓN:
+// 1. Ve a la Consola de Firebase -> Configuración del proyecto (icono de engranaje).
+// 2. En la pestaña "General", baja hasta la sección "Tus apps".
+// 3. Busca tu app web y haz clic en "Configuración y SDK".
+// 4. Selecciona la opción "Config".
+// 5. Copia el objeto `firebaseConfig` completo y pégalo aquí, reemplazando
+//    el que está de ejemplo.
 //
-// After pasting your config, SAVE the file. The development server will
-// automatically reload, and the error should be resolved.
+// Después de pegar tu configuración, GUARDA el archivo. El servidor de
+// desarrollo se recargará automáticamente y el error desaparecerá.
 // =================================================================================
 const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY_HERE",
-  authDomain: "PASTE_YOUR_AUTH_DOMAIN_HERE",
-  projectId: "PASTE_YOUR_PROJECT_ID_HERE",
-  storageBucket: "PAST_YOUR_STORAGE_BUCKET_HERE",
-  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID_HERE",
-  appId: "PASTE_YOUR_APP_ID_HERE",
+  apiKey: "Pega tu apiKey aquí",
+  authDomain: "Pega tu authDomain aquí",
+  projectId: "Pega tu projectId aquí",
+  storageBucket: "Pega tu storageBucket aquí",
+  messagingSenderId: "Pega tu messagingSenderId aquí",
+  appId: "Pega tu appId aquí",
 };
 
 // Initialize Firebase
-let app;
-if (!getApps().length) {
-  try {
-    app = initializeApp(firebaseConfig);
-  } catch (error) {
-    console.error("[firebase.ts] Firebase initialization failed.", error);
-    // If you see an error here, it's likely due to the firebaseConfig object being incorrect.
-  }
-} else {
-  app = getApp();
-}
-
-let db;
-let auth;
-
-if (app) {
-  db = getFirestore(app);
-  auth = getAuth(app);
-} else {
-    console.error(
-    "[firebase.ts] Firebase app is not available. Firestore and Auth will not be available."
-  );
-}
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const db = getFirestore(app);
+const auth = getAuth(app);
 
 export { app, db, auth };
