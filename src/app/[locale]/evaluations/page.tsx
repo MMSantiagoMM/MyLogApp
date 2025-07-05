@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, where, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, where, Timestamp, orderBy, setDoc, getDoc } from 'firebase/firestore';
 import type { Evaluation, Question, Answer, StudentSubmission, Group } from '@/lib/data';
 
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Loader2, PlusCircle, Trash2, Edit, CalendarIcon, AlertTriangle, BookCheck, CheckCircle, XCircle, ArrowLeft, Send, BarChart, PlayCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, isAfter, isBefore, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -187,15 +188,20 @@ function StudentEvaluationsView() {
     const [currentEvaluation, setCurrentEvaluation] = useState<Evaluation | null>(null);
     const [currentSubmission, setCurrentSubmission] = useState<StudentSubmission | null>(null);
 
+    // State for the student info dialog
+    const [studentNameInput, setStudentNameInput] = useState(userData?.email?.split('@')[0] || '');
     const [studentIdNumber, setStudentIdNumber] = useState('');
     const [evaluationToStart, setEvaluationToStart] = useState<Evaluation | null>(null);
     const [accessCodeInput, setAccessCodeInput] = useState('');
+    const [availableGroups, setAvailableGroups] = useState<Group[]>([]);
+    const [selectedGroupId, setSelectedGroupId] = useState('');
+    const [isFetchingGroups, setIsFetchingGroups] = useState(false);
 
     const fetchStudentData = useCallback(async () => {
         if (!user) return;
         setIsLoading(true);
         try {
-            // Fetch all active evaluations
+            // Fetch all active evaluations that have at least one group assigned
             const now = new Date();
             const evalsQuery = query(collection(db, 'evaluations'));
             const evalsSnapshot = await getDocs(evalsQuery);
@@ -210,7 +216,12 @@ function StudentEvaluationsView() {
                         createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                     } as Evaluation;
                 })
-                .filter(eva => isBefore(now, parseISO(eva.endDate)) && isAfter(now, parseISO(eva.startDate)));
+                .filter(eva => 
+                    isBefore(now, parseISO(eva.endDate)) && 
+                    isAfter(now, parseISO(eva.startDate)) &&
+                    eva.assignedGroupIds &&
+                    eva.assignedGroupIds.length > 0
+                );
 
             // Fetch student's submissions
             const subsQuery = query(collection(db, 'submissions'), where('studentId', '==', user.uid));
@@ -245,25 +256,66 @@ function StudentEvaluationsView() {
         fetchStudentData();
     }, [fetchStudentData]);
 
-    const handleOpenStartDialog = (evaluation: Evaluation) => {
+    const handleOpenStartDialog = async (evaluation: Evaluation) => {
         setEvaluationToStart(evaluation);
-        setAccessCodeInput(''); // Reset code input each time
+        setAccessCodeInput('');
+        setSelectedGroupId(''); // Reset group selection
+        
+        if (evaluation.assignedGroupIds && evaluation.assignedGroupIds.length > 0) {
+            setIsFetchingGroups(true);
+            try {
+                const groupsQuery = query(collection(db, 'groups'), where('__name__', 'in', evaluation.assignedGroupIds.slice(0, 30)));
+                const querySnapshot = await getDocs(groupsQuery);
+                const groupsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Group));
+                setAvailableGroups(groupsList);
+            } catch (error) {
+                console.error("Error fetching assigned groups:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los grupos para esta evaluación.' });
+                setAvailableGroups([]);
+            } finally {
+                setIsFetchingGroups(false);
+            }
+        } else {
+            setAvailableGroups([]);
+        }
     };
 
-    const handleConfirmStart = () => {
-        if (!evaluationToStart || !studentIdNumber.trim()) {
-            toast({ variant: 'destructive', title: 'Campo Requerido', description: 'Por favor, ingresa tu número de identificación.' });
+    const handleConfirmStart = async () => {
+        if (!evaluationToStart || !studentNameInput.trim() || !studentIdNumber.trim() || !selectedGroupId) {
+            toast({ variant: 'destructive', title: 'Campos Requeridos', description: 'Por favor, completa tu nombre, identificación y selecciona un grupo.' });
             return;
         }
 
         if (evaluationToStart.accessCode && evaluationToStart.accessCode.trim() !== accessCodeInput.trim()) {
-            toast({ variant: 'destructive', title: 'Código Incorrecto', description: 'El código de acceso no es válido para esta evaluación.' });
+            toast({ variant: 'destructive', title: 'Código Incorrecto', description: 'El código de acceso no es válido.' });
             return;
         }
+        
+        if (!user) return;
 
-        setCurrentEvaluation(evaluationToStart);
-        setView('take');
-        setEvaluationToStart(null);
+        try {
+            // Enroll student in the selected group if not already there, using user's UID as document ID
+            const studentDocRef = doc(db, 'groups', selectedGroupId, 'students', user.uid);
+            const studentDocSnap = await getDoc(studentDocRef);
+
+            if (!studentDocSnap.exists()) {
+                await setDoc(studentDocRef, {
+                    name: studentNameInput.trim(),
+                    grades: { m1: [null, null, null], m2: [null, null, null], m3: [null, null, null] },
+                    attendance: {},
+                });
+                toast({ title: "Inscripción Exitosa", description: `Has sido añadido al grupo seleccionado.` });
+            }
+            
+            // Proceed to take the evaluation
+            setCurrentEvaluation(evaluationToStart);
+            setView('take');
+            setEvaluationToStart(null);
+
+        } catch (error) {
+            console.error("Error enrolling student:", error);
+            toast({ variant: 'destructive', title: 'Error de Inscripción', description: 'No se pudo procesar tu inscripción en el grupo.' });
+        }
     };
 
     const handleShowResult = (submission: StudentSubmission) => {
@@ -279,7 +331,12 @@ function StudentEvaluationsView() {
     };
 
     if (view === 'take' && currentEvaluation) {
-        return <TakeEvaluationForm evaluation={currentEvaluation} studentIdNumber={studentIdNumber} onFinished={handleBackToList} />;
+        return <TakeEvaluationForm 
+            evaluation={currentEvaluation} 
+            studentName={studentNameInput}
+            studentIdNumber={studentIdNumber} 
+            groupId={selectedGroupId}
+            onFinished={handleBackToList} />;
     }
     
     if (view === 'result' && currentSubmission) {
@@ -353,6 +410,16 @@ function StudentEvaluationsView() {
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
+                            <Label htmlFor="student-name">Nombre Completo</Label>
+                            <Input
+                                id="student-name"
+                                value={studentNameInput}
+                                onChange={(e) => setStudentNameInput(e.target.value)}
+                                placeholder="Tu nombre completo"
+                                required
+                            />
+                        </div>
+                        <div className="space-y-2">
                             <Label htmlFor="student-id-number">Número de Identificación</Label>
                             <Input
                                 id="student-id-number"
@@ -361,6 +428,25 @@ function StudentEvaluationsView() {
                                 placeholder="Tu número de identificación"
                                 required
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Grupo</Label>
+                            {isFetchingGroups ? <Loader2 className="animate-spin" /> :
+                                availableGroups.length > 0 ? (
+                                    <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecciona tu grupo" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableGroups.map(group => (
+                                                <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">No hay grupos asignados a esta evaluación.</p>
+                                )
+                            }
                         </div>
                         {evaluationToStart?.accessCode && (
                              <div className="space-y-2">
@@ -377,7 +463,7 @@ function StudentEvaluationsView() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEvaluationToStart(null)}>Cancelar</Button>
-                        <Button onClick={handleConfirmStart}>Confirmar e Iniciar</Button>
+                        <Button onClick={handleConfirmStart} disabled={!studentNameInput || !studentIdNumber || !selectedGroupId}>Confirmar e Iniciar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -668,7 +754,7 @@ function AssignGroupsDialog({ evaluation, onAssigned }: { evaluation: Evaluation
 
 
 // Form for student to take an evaluation
-function TakeEvaluationForm({ evaluation, onFinished, studentIdNumber }: { evaluation: Evaluation, onFinished: () => void, studentIdNumber: string }) {
+function TakeEvaluationForm({ evaluation, onFinished, studentName, studentIdNumber, groupId }: { evaluation: Evaluation, onFinished: () => void, studentName: string, studentIdNumber: string, groupId: string }) {
     const { user, userData } = useAuth();
     const { toast } = useToast();
     const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
@@ -700,11 +786,11 @@ function TakeEvaluationForm({ evaluation, onFinished, studentIdNumber }: { evalu
 
         const submissionData: Omit<StudentSubmission, 'id' | 'submittedAt'> = {
             studentId: user.uid,
-            studentName: userData.email || 'Estudiante Anónimo',
+            studentName: studentName,
             studentIdNumber: studentIdNumber,
             evaluationId: evaluation.id,
             evaluationTopic: evaluation.topic,
-            groupId: '', // This needs a proper way to be identified in the future
+            groupId: groupId,
             selectedAnswers,
             score: finalScore,
             totalQuestions: evaluation.questions.length,
